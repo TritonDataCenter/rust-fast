@@ -1,0 +1,19 @@
+[package]
+name = "rust_fast"
+version = "0.1.0"
+authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
+
+[dependencies]
+bytes = "0.4.10"
+byteorder = "1.2.6"
+chrono = { version = "0.4.6", features = ["serde"] }
+crc16 = "0.4.0"
+num = "0.2"
+num-derive = "0.2"
+num-traits = "0.2"
+serde = "1.0.79"
+serde_derive = "1.0.79"
+serde_json = "1.0.31"
+tokio = "0.1.8"
+tokio-codec = "0.1.0"
+tokio-io = "0.1.8"
