@@ -29,17 +29,41 @@ const FP_OFF_CRC: usize     = 0x7;
 const FP_OFF_DATALEN: usize = 0xb;
 const FP_OFF_DATA: usize    = 0xf;
 
-const FP_HEADER_SZ: usize = FP_OFF_DATA;
+pub const FP_HEADER_SZ: usize = FP_OFF_DATA;
 
 const FP_VERSION_1: u8       = 0x1;
 const FP_VERSION_CURRENT: u8 = FP_VERSION_1;
+
+#[derive(Debug)]
+pub enum FastParseError {
+    NotEnoughBytes(usize),
+    IOError(Error)
+}
+
+impl From<io::Error> for FastParseError {
+    fn from(error: io::Error) -> Self {
+        FastParseError::IOError(error)
+    }
+}
+
+impl From<FastParseError> for Error {
+    fn from(pfr: FastParseError) -> Self {
+        match pfr {
+            FastParseError::NotEnoughBytes(_) => {
+                let msg = "Unable to parse message: not enough bytes";
+                Error::new(ErrorKind::Other, msg)
+            },
+            FastParseError::IOError(e) => e
+        }
+    }
+}
 
 #[derive(FromPrimitive, ToPrimitive)]
 pub enum FastMessageType {
     Json = 1
 }
 
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(FromPrimitive, ToPrimitive, PartialEq)]
 pub enum FastMessageStatus {
     Data = 1,
     End = 2,
@@ -92,11 +116,12 @@ pub struct FastMessage {
     pub msg_type: FastMessageType,
     pub status: FastMessageStatus,
     pub id: u32,
+    pub msg_size: Option<usize>,
     pub data: FastMessageData
 }
 
 impl FastMessage {
-    pub fn parse(buf: &[u8]) -> Result<FastMessage, io::Error> {
+    pub fn parse(buf: &[u8]) -> Result<FastMessage, FastParseError> {
         FastMessage::check_buffer_size(buf)?;
         let header = FastMessage::parse_header(buf)?;
 
@@ -105,34 +130,33 @@ impl FastMessage {
         FastMessage::validate_crc(raw_data, header.crc)?;
         let data = FastMessage::parse_data(raw_data)?;
 
-
         Ok(FastMessage {
             msg_type: header.msg_type,
             status: header.status,
             id: header.id,
+            msg_size: Some(FP_OFF_DATA + header.data_len),
             data: data
         })
     }
 
-    fn check_buffer_size(buf: &[u8]) -> Result<(), io::Error> {
+    pub fn check_buffer_size(buf: &[u8]) -> Result<(), FastParseError> {
         if buf.len() < FP_HEADER_SZ {
-            let msg = "Unable to parse message: not enough bytes";
-            Err(Error::new(ErrorKind::Other, msg))
+            Err(FastParseError::NotEnoughBytes(buf.len()))
         } else {
             Ok(())
         }
     }
 
-    fn parse_header(buf: &[u8]) -> Result<FastMessageHeader, io::Error> {
+    pub fn parse_header(buf: &[u8]) -> Result<FastMessageHeader, FastParseError> {
         let msg_type = FromPrimitive::from_u8(buf[FP_OFF_TYPE])
             .ok_or_else(|| {
                 let msg = "Failed to parse message type";
-                Error::new(ErrorKind::Other, msg)
+                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
             })?;
         let status = FromPrimitive::from_u8(buf[FP_OFF_STATUS])
             .ok_or_else(|| {
                 let msg = "Failed to parse message status";
-                Error::new(ErrorKind::Other, msg)
+                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
             })?;
         let msg_id = BigEndian::read_u32(&buf[FP_OFF_MSGID..FP_OFF_MSGID+4]);
         let expected_crc = BigEndian::read_u32(&buf[FP_OFF_CRC..FP_OFF_CRC+4]);
@@ -147,16 +171,15 @@ impl FastMessage {
         })
     }
 
-    fn validate_data_length(buf: &[u8], data_length: usize) -> Result<(), io::Error> {
+    fn validate_data_length(buf: &[u8], data_length: usize) -> Result<(), FastParseError> {
         if buf.len() < (FP_HEADER_SZ + data_length) {
-            let msg = "Data payload size does not match indicated data length";
-            Err(Error::new(ErrorKind::Other, msg))
+            Err(FastParseError::NotEnoughBytes(buf.len()))
         } else {
             Ok(())
         }
     }
 
-    fn validate_crc(data_buf: &[u8], crc: u32) -> Result<(), io::Error> {
+    fn validate_crc(data_buf: &[u8], crc: u32) -> Result<(), FastParseError> {
         let calculated_crc = State::<ARC>::calculate(data_buf) as u32;
         if crc != calculated_crc {
             // Oops, node-fast uses an old version of a crc lib with bug so just
@@ -166,23 +189,23 @@ impl FastMessage {
             // updated version of the crc library.
             //
             // let msg = "Calculated CRC does not match the provided CRC";
-            // Err(Error::new(ErrorKind::Other, msg))
+            // Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
             Ok(())
         } else {
             Ok(())
         }
     }
 
-    fn parse_data(data_buf: &[u8]) -> Result<FastMessageData, io::Error> {
+    fn parse_data(data_buf: &[u8]) -> Result<FastMessageData, FastParseError> {
         match str::from_utf8(data_buf) {
             Ok(data_str) => serde_json::from_str(data_str)
                 .map_err(|_e| {
                     let msg = "Failed to parse data payload as JSON";
-                    Error::new(ErrorKind::Other, msg)
+                    FastParseError::IOError(Error::new(ErrorKind::Other, msg))
                 }),
             Err(_) => {
                 let msg = "Failed to parse data payload as UTF-8";
-                Err(Error::new(ErrorKind::Other, msg))
+                Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
             }
         }
     }
@@ -192,6 +215,7 @@ impl FastMessage {
             msg_type: FastMessageType::Json,
             status: FastMessageStatus::Data,
             id: msg_id,
+            msg_size: None,
             data: data
         }
     }
@@ -201,6 +225,7 @@ impl FastMessage {
             msg_type: FastMessageType::Json,
             status: FastMessageStatus::End,
             id: msg_id,
+            msg_size: None,
             data: FastMessageData::new(String::from("yes"), Value::Array(vec![]))
         }
     }
@@ -210,13 +235,13 @@ pub struct FastRpc;
 
 impl Decoder for FastRpc {
     type Item = Vec<FastMessage>;
-    type Error = io::Error;
+    type Error = Error;
 
-    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, io::Error> {
+    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
         if buf.len() > 0 {
-            let parsed_msg = FastMessage::parse(&buf).map_err(|e| {
-                let msg = format!("failed to parse Fast request: {:?}", e);
-                io::Error::new(io::ErrorKind::Other, msg)
+            let parsed_msg = FastMessage::parse(&buf).map_err(|pfr| {
+                let msg = format!("failed to parse Fast request: {}", Error::from(pfr));
+                Error::new(ErrorKind::Other, msg)
             })?;
             buf.clear();
             Ok(Some(vec![parsed_msg]))
@@ -243,7 +268,7 @@ impl Encoder for FastRpc {
     }
 }
 
-fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
+pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
     let m_msg_type_u8 = ToPrimitive::to_u8(&msg.msg_type);
     let m_status_u8 = ToPrimitive::to_u8(&msg.status);
     match (m_msg_type_u8, m_status_u8) {
@@ -252,7 +277,7 @@ fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             let data_len = data_str.len();
             let buf_capacity = buf.capacity();
             if FP_HEADER_SZ + data_len > buf_capacity {
-                buf.reserve(FP_HEADER_SZ + data_len as usize - buf_capacity);
+                buf.reserve(FP_HEADER_SZ + data_len as usize);
             }
             buf.put_u8(FP_VERSION_CURRENT);
             buf.put_u8(msg_type_u8);
