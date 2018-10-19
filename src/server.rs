@@ -2,11 +2,11 @@
  * Copyright 2018 Joyent, Inc.
  */
 
-extern crate tokio;
-
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
+use slog::Logger;
+use tokio;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::codec::Decoder;
@@ -15,19 +15,25 @@ use protocol::{FastRpc, FastMessage};
 
 
 pub fn process(socket: TcpStream,
-               response_handler: Arc<(Fn(&FastMessage) -> Result<Vec<FastMessage>, Error> + Send + Sync)>)
+               response_handler: Arc<(Fn(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send + Sync)>,
+               log: &Logger
+)
 {
     let (tx, rx) = FastRpc.framed(socket).split();
+    let rx_log = log.clone();
+    let tx_log = log.clone();
     let task = tx.send_all(rx.and_then(
         move |x| {
+            debug!(rx_log, "processing fast message");
             let c = Arc::clone(&response_handler);
-            respond(x, c)
+            respond(x, c, &rx_log)
         }))
-        .then(|res| {
+        .then(move |res| {
             if let Err(e) = res {
-                println!("failed to process connection; error = {:?}", e);
+                error!(tx_log, "failed to process connection"; "err" => %e);
             }
 
+            debug!(tx_log, "transmitted response to client");
             Ok(())
         });
 
@@ -36,13 +42,15 @@ pub fn process(socket: TcpStream,
 }
 
 pub fn respond(msgs: Vec<FastMessage>,
-               response_handler: Arc<(Fn(&FastMessage) -> Result<Vec<FastMessage>, Error> + Sync + Send)>)
-               -> Box<Future<Item = Vec<FastMessage>, Error = Error> + Send>
+               response_handler: Arc<(Fn(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Sync + Send)>,
+               log: &Logger)
+               -> impl Future<Item = Vec<FastMessage>, Error = Error> + Send
 {
     match msgs.get(0) {
         Some(msg) => {
-            match response_handler(msg) {
+            match response_handler(msg, &log) {
                 Ok(mut response) => {
+                    debug!(log, "generated response");
                     response.push(FastMessage::end(msg.id));
                     Box::new(future::ok(response))
                 },

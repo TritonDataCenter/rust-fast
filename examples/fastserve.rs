@@ -8,16 +8,20 @@ extern crate rust_fast;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+#[macro_use]
+extern crate slog;
+extern crate slog_bunyan;
 extern crate tokio;
 
 use std::env;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::prelude::*;
 use serde_json::Value;
+use slog::{Drain, Logger};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
@@ -54,7 +58,10 @@ fn other_error(msg: &str) -> Error {
     Error::new(ErrorKind::Other, String::from(msg))
 }
 
-fn date_handler(msg: &FastMessage, mut response: Vec<FastMessage>) -> Result<Vec<FastMessage>, Error> {
+fn date_handler(msg: &FastMessage,
+                mut response: Vec<FastMessage>,
+                log: &Logger) -> Result<Vec<FastMessage>, Error> {
+    debug!(log, "handling date function request");
     let date_payload_result = serde_json::to_value(vec![DatePayload::new()]);
     match date_payload_result {
         Ok(date_payload) => {
@@ -66,13 +73,20 @@ fn date_handler(msg: &FastMessage, mut response: Vec<FastMessage>) -> Result<Vec
     }
 }
 
-fn echo_handler(msg: &FastMessage, mut response: Vec<FastMessage>) -> Result<Vec<FastMessage>, Error> {
+fn echo_handler(msg: &FastMessage,
+                mut response: Vec<FastMessage>,
+                log: &Logger) -> Result<Vec<FastMessage>, Error> {
+    debug!(log, "handling echo function request");
     response.push(FastMessage::data(msg.id, msg.data.clone()));
     Ok(response)
 }
 
 
-fn yes_handler(msg: &FastMessage, mut response: Vec<FastMessage>) -> Result<Vec<FastMessage>, Error> {
+fn yes_handler(msg: &FastMessage,
+               mut response: Vec<FastMessage>,
+               log: &Logger) -> Result<Vec<FastMessage>, Error> {
+    debug!(log, "handling yes function request");
+
     //TODO: Too much nesting, need to refactor
     match msg.data.d {
         Value::Array(_) => {
@@ -99,30 +113,45 @@ fn yes_handler(msg: &FastMessage, mut response: Vec<FastMessage>) -> Result<Vec<
     }
 }
 
-fn msg_handler(msg: &FastMessage) -> Result<Vec<FastMessage>, Error> {
+fn msg_handler(msg: &FastMessage, log: &Logger) -> Result<Vec<FastMessage>, Error> {
     let response: Vec<FastMessage> = vec![];
 
     match msg.data.m.name.as_str() {
-        "date" => date_handler(msg, response),
-        "echo" => echo_handler(msg, response),
-        "yes" => yes_handler(msg, response),
+        "date" => date_handler(msg, response, &log),
+        "echo" => echo_handler(msg, response, &log),
+        "yes" => yes_handler(msg, response, &log),
         _ => Err(Error::new(ErrorKind::Other, format!("Unsupport functon: {}", msg.data.m.name)))
     }
 }
 
 fn main() {
+    let root_log = Logger::root(
+        Mutex::new(
+            slog_bunyan::default(
+                std::io::stdout()
+            )
+        ).fuse(),
+        o!("build-id" => "0.1.0")
+    );
+
     let addr = env::args().nth(1).unwrap_or("127.0.0.1:2030".to_string());
     let addr = addr.parse::<SocketAddr>().unwrap();
 
     let listener = TcpListener::bind(&addr).expect("failed to bind");
-    println!("Listening on: {}", addr);
+    info!(root_log, "listening for fast requests"; "address" => addr);
 
     tokio::run({
+        let process_log = root_log.clone();
+        let err_log = root_log.clone();
         listener.incoming()
-            .map_err(|e| println!("failed to accept socket; error = {:?}", e))
-            .for_each(|socket| {
-                server::process(socket, Arc::new(msg_handler));
-                Ok(())
+            .map_err(move |e| {
+                error!(&err_log, "failed to accept socket"; "err" => %e)
             })
+            .for_each(
+                move |socket| {
+                    server::process(socket, Arc::new(msg_handler), &process_log);
+                    Ok(())
+                })
     });
+    info!(root_log, "Unreachable");
 }

@@ -10,8 +10,10 @@ This is a rust implementation of the Fast protocol.
 
 This crate includes:
 
+* client library interface
 * server library interface
 * `fastserve`, An example Fast server for demo and testing
+* `fastcall`, An example command-line tool for making Fast RPC requests
 
 ## Synopsis
 
@@ -19,8 +21,16 @@ Start the rust Fast server:
 
     $ cargo run --example fastserve
 
-Use the `fastcall` program in the repo to invoke [`node-fast`](https://github.com/joyent/node-fast) the `date` RPC method
-inside the client:
+Use the `fastcall` example program to invoke the `date` RPC method inside the
+client:
+
+```
+cargo run --example fastcall -- --args '[]' --method date
+
+```
+
+The `fastcall` program in the [`node-fast`](https://github.com/joyent/node-fast)
+repo will also work:
 
     $ fastcall 127.0.0.1 2030 date '[]'
     {"timestamp":1457475515355,"iso8601":"2016-03-08T22:18:35.355Z"}
@@ -43,8 +53,4 @@ This was just a quick exploratory effort. As it stands now much of the code
 could be more nicely factored and there is currently no logging. There are cases
 where a program could crash unnecessarily. If you try the example server and it
 crashes run it with `RUST_BACKTRACE=1 cargo run --example fastserve` to figure
-out where the badness happened. The error handling also is very basic and a
-custom error type is warranted.
-
-There is also only currently infrastructure for servers. Client support will be
-added later.
+out where the badness happened. The error handling also is very basic.

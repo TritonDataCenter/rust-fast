@@ -13,6 +13,9 @@ extern crate num_traits;
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
+#[macro_use]
+extern crate slog;
+extern crate slog_bunyan;
 extern crate tokio;
 extern crate tokio_codec;
 extern crate tokio_io;
