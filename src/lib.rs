@@ -9,6 +9,10 @@ extern crate num;
 #[macro_use]
 extern crate num_derive;
 extern crate num_traits;
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+extern crate rand;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;

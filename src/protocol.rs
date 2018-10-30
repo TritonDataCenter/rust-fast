@@ -6,6 +6,7 @@ extern crate serde_json;
 
 use std::{io, str, usize};
 use std::io::{Error, ErrorKind};
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bytes::{BufMut, BytesMut};
@@ -58,12 +59,12 @@ impl From<FastParseError> for Error {
     }
 }
 
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageType {
     Json = 1
 }
 
-#[derive(FromPrimitive, ToPrimitive, PartialEq)]
+#[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageStatus {
     Data = 1,
     End = 2,
@@ -78,7 +79,7 @@ pub struct FastMessageHeader {
     data_len: usize
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageMetaData {
     pub uts: u64,
     pub name: String
@@ -97,7 +98,7 @@ impl FastMessageMetaData {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageData {
     pub m: FastMessageMetaData,
     pub d: Value
@@ -112,12 +113,23 @@ impl FastMessageData {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FastMessage {
     pub msg_type: FastMessageType,
     pub status: FastMessageStatus,
     pub id: u32,
     pub msg_size: Option<usize>,
     pub data: FastMessageData
+}
+
+impl PartialEq for FastMessage {
+    fn eq(&self, other: &FastMessage) -> bool {
+        self.msg_type == other.msg_type
+            && self.status == other.status
+            && self.id == other.id
+            && self.msg_size == other.msg_size
+            && self.data == other.data
+    }
 }
 
 impl FastMessage {
@@ -130,11 +142,16 @@ impl FastMessage {
         FastMessage::validate_crc(raw_data, header.crc)?;
         let data = FastMessage::parse_data(raw_data)?;
 
+        let msg_size = match header.status {
+            FastMessageStatus::End => None,
+            _ => Some(FP_OFF_DATA + header.data_len)
+        };
+
         Ok(FastMessage {
             msg_type: header.msg_type,
             status: header.status,
             id: header.id,
-            msg_size: Some(FP_OFF_DATA + header.data_len),
+            msg_size: msg_size,
             data: data
         })
     }
@@ -198,11 +215,13 @@ impl FastMessage {
 
     fn parse_data(data_buf: &[u8]) -> Result<FastMessageData, FastParseError> {
         match str::from_utf8(data_buf) {
-            Ok(data_str) => serde_json::from_str(data_str)
+            Ok(data_str) => {
+                serde_json::from_str(data_str)
                 .map_err(|_e| {
                     let msg = "Failed to parse data payload as JSON";
                     FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-                }),
+                })
+            },
             Err(_) => {
                 let msg = "Failed to parse data payload as UTF-8";
                 Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
@@ -294,5 +313,131 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             Err(String::from("Invalid status")),
         (None, None) =>
             Err(String::from("Invalid message type and status"))
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::iter;
+
+    use quickcheck::{Gen, Arbitrary};
+    use rand::Rng;
+    use rand::distributions::Alphanumeric;
+    use serde_json::Map;
+
+
+    fn random_string<G: Gen>(g: &mut G, len: usize) -> String {
+        iter::repeat(())
+            .map(|()| g.sample(Alphanumeric))
+            .take(len)
+            .collect()
+    }
+
+    fn nested_object<G: Gen>(g: &mut G) -> Value {
+        let k_len = g.gen::<u8>() as usize;
+        let v_len = g.gen::<u8>() as usize;
+        let k = random_string(g, k_len);
+        let v = random_string(g, v_len);
+        let count = g.gen::<u64>();
+        let mut inner_obj = Map::new();
+        let mut outer_obj = Map::new();
+        let _ = inner_obj.insert(k, Value::String(v));
+        outer_obj.insert(String::from("value"), Value::Object(inner_obj))
+            .and_then(|_| outer_obj.insert(String::from("count"), count.into()));
+        Value::Object(outer_obj)
+    }
+
+    impl Arbitrary for FastMessageStatus {
+        fn arbitrary<G: Gen>(g: &mut G) -> FastMessageStatus {
+            let choices = [
+                FastMessageStatus::Data ,
+                FastMessageStatus::End,
+                FastMessageStatus::Error
+            ];
+
+            g.choose(&choices).unwrap().clone()
+        }
+    }
+
+    impl Arbitrary for FastMessageType {
+        fn arbitrary<G: Gen>(g: &mut G) -> FastMessageType {
+            let choices = [
+                FastMessageType::Json
+            ];
+
+            g.choose(&choices).unwrap().clone()
+        }
+    }
+
+    impl Arbitrary for FastMessageMetaData {
+        fn arbitrary<G: Gen>(g: &mut G) -> FastMessageMetaData {
+            let name = random_string(g, 10);
+            FastMessageMetaData::new(name)
+        }
+    }
+
+    impl Arbitrary for FastMessageData {
+        fn arbitrary<G: Gen>(g: &mut G) -> FastMessageData {
+            let md = FastMessageMetaData::arbitrary(g);
+
+            let choices = [
+                Value::Array(vec![]),
+                Value::Object(Map::new()),
+                nested_object(g),
+                Value::Array(vec![nested_object(g)])
+            ];
+
+            let value = g.choose(&choices).unwrap().clone();
+
+            FastMessageData {
+                m: md,
+                d: value
+            }
+        }
+    }
+
+    impl Arbitrary for FastMessage {
+        fn arbitrary<G: Gen>(g: &mut G) -> FastMessage {
+            let msg_type = FastMessageType::arbitrary(g);
+            let status = FastMessageStatus::arbitrary(g);
+            let id = g.gen::<u32>();
+
+            let data = FastMessageData::arbitrary(g);
+            let data_str = serde_json::to_string(&data).unwrap();
+            let msg_sz = match status {
+                FastMessageStatus::End => None,
+                _ => {
+                    Some(FP_OFF_DATA + data_str.len())
+                }
+
+            };
+
+            FastMessage {
+                msg_type: msg_type,
+                status: status,
+                id: id,
+                msg_size: msg_sz,
+                data: data
+            }
+
+        }
+    }
+
+    quickcheck! {
+        fn prop_fast_message_roundtrip(msg: FastMessage) -> bool {
+            let mut write_buf = BytesMut::new();
+            match encode_msg(&msg, &mut write_buf) {
+                Ok(_) => {
+                    match FastMessage::parse(&write_buf) {
+                        Ok(decoded_msg) => decoded_msg == msg,
+                        Err(_) => false
+                    }
+                },
+                Err(_) => false
+            }
+        }
     }
 }

@@ -153,5 +153,4 @@ fn main() {
                     Ok(())
                 })
     });
-    info!(root_log, "Unreachable");
 }
