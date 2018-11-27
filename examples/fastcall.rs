@@ -69,9 +69,8 @@ fn stdout_handler(msg: &FastMessage) {
 
 fn response_handler(msg: &FastMessage) -> Result<(), Error> {
     match msg.data.m.name.as_str() {
-        "date" => stdout_handler(msg),
-        "echo" => stdout_handler(msg),
-        "yes"  => stdout_handler(msg),
+        "date" | "echo" | "yes" |
+        "getobject" | "putobject" => stdout_handler(msg),
         _      =>  println!("Received {} response", msg.data.m.name)
     }
 

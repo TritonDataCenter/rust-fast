@@ -31,6 +31,7 @@ pub fn process(socket: TcpStream,
         .then(move |res| {
             if let Err(e) = res {
                 error!(tx_log, "failed to process connection"; "err" => %e);
+                //TODO: Send error response to client
             }
 
             debug!(tx_log, "transmitted response to client");
@@ -51,7 +52,8 @@ pub fn respond(msgs: Vec<FastMessage>,
             match response_handler(msg, &log) {
                 Ok(mut response) => {
                     debug!(log, "generated response");
-                    response.push(FastMessage::end(msg.id));
+                    let method = msg.data.m.name.clone();
+                    response.push(FastMessage::end(msg.id, method));
                     Box::new(future::ok(response))
                 },
                 Err(err) => Box::new(future::err(err))

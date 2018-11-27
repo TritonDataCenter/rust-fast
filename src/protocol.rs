@@ -239,13 +239,13 @@ impl FastMessage {
         }
     }
 
-    pub fn end(msg_id: u32) -> FastMessage {
+    pub fn end(msg_id: u32, method: String) -> FastMessage {
         FastMessage {
             msg_type: FastMessageType::Json,
             status: FastMessageStatus::End,
             id: msg_id,
             msg_size: None,
-            data: FastMessageData::new(String::from("yes"), Value::Array(vec![]))
+            data: FastMessageData::new(method, Value::Array(vec![]))
         }
     }
 }
