@@ -248,6 +248,16 @@ impl FastMessage {
             data: FastMessageData::new(method, Value::Array(vec![]))
         }
     }
+
+    pub fn error(msg_id: u32, data: FastMessageData) -> FastMessage {
+        FastMessage {
+            msg_type: FastMessageType::Json,
+            status: FastMessageStatus::Error,
+            id: msg_id,
+            msg_size: None,
+            data: data
+        }
+    }
 }
 
 pub struct FastRpc;
