@@ -10,7 +10,7 @@ extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate slog;
-extern crate slog_bunyan;
+extern crate slog_term;
 extern crate tokio;
 
 use std::env;
@@ -125,11 +125,10 @@ fn msg_handler(msg: &FastMessage, log: &Logger) -> Result<Vec<FastMessage>, Erro
 }
 
 fn main() {
+    let plain = slog_term::PlainSyncDecorator::new(std::io::stdout());
     let root_log = Logger::root(
         Mutex::new(
-            slog_bunyan::default(
-                std::io::stdout()
-            )
+            slog_term::FullFormat::new(plain).build()
         ).fuse(),
         o!("build-id" => "0.1.0")
     );
