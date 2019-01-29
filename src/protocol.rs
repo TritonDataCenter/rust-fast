@@ -305,7 +305,7 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             let data_str = serde_json::to_string(&msg.data).unwrap();
             let data_len = data_str.len();
             let buf_capacity = buf.capacity();
-            if FP_HEADER_SZ + data_len > buf_capacity {
+            if buf.len() + FP_HEADER_SZ + data_len > buf_capacity {
                 buf.reserve(FP_HEADER_SZ + data_len as usize);
             }
             buf.put_u8(FP_VERSION_CURRENT);
@@ -359,6 +359,21 @@ mod test {
         outer_obj.insert(String::from("value"), Value::Object(inner_obj))
             .and_then(|_| outer_obj.insert(String::from("count"), count.into()));
         Value::Object(outer_obj)
+    }
+
+    #[derive(Clone, Debug)]
+    struct MessageCount(u8);
+
+
+    impl Arbitrary for MessageCount {
+        fn arbitrary<G: Gen>(g: &mut G) -> MessageCount {
+            let mut c = 0;
+            while c == 0 {
+                c = g.gen::<u8>()
+            }
+
+            MessageCount(c)
+        }
     }
 
     impl Arbitrary for FastMessageStatus {
@@ -448,6 +463,36 @@ mod test {
                     }
                 },
                 Err(_) => false
+            }
+        }
+    }
+
+    quickcheck! {
+        fn prop_fast_message_bundling(msg: FastMessage, msg_count: MessageCount) -> bool {
+            let mut write_buf = BytesMut::new();
+            let mut error_occurred = false;
+            for _ in 0..msg_count.0 {
+                match encode_msg(&msg, &mut write_buf) {
+                    Ok(_) => (),
+                    Err(_) => {
+                        error_occurred = true;
+                    }
+                }
+            }
+            if error_occurred == true {
+                false
+            } else {
+                let msg_size = write_buf.len() / msg_count.0 as usize;
+                let mut offset = 0;
+                for _ in 0..msg_count.0 {
+                    match FastMessage::parse(&write_buf[offset..offset+msg_size]) {
+                        Ok(decoded_msg) => error_occurred = decoded_msg == msg,
+                        Err(_) => error_occurred = false
+                    }
+                    offset += msg_size;
+                }
+
+                error_occurred
             }
         }
     }
