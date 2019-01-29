@@ -335,6 +335,7 @@ mod test {
 
     use quickcheck::{Gen, Arbitrary};
     use rand::Rng;
+    use rand::seq::SliceRandom;
     use rand::distributions::Alphanumeric;
     use serde_json::Map;
 
@@ -368,7 +369,7 @@ mod test {
                 FastMessageStatus::Error
             ];
 
-            g.choose(&choices).unwrap().clone()
+           choices.choose(g).unwrap().clone()
         }
     }
 
@@ -378,7 +379,7 @@ mod test {
                 FastMessageType::Json
             ];
 
-            g.choose(&choices).unwrap().clone()
+            choices.choose(g).unwrap().clone()
         }
     }
 
@@ -400,7 +401,7 @@ mod test {
                 Value::Array(vec![nested_object(g)])
             ];
 
-            let value = g.choose(&choices).unwrap().clone();
+            let value = choices.choose(g).unwrap().clone();
 
             FastMessageData {
                 m: md,
