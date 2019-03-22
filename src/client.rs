@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 use std::io::{Error, ErrorKind};
@@ -10,8 +10,8 @@ use bytes::BytesMut;
 use serde_json::Value;
 use tokio::prelude::*;
 
-use protocol;
-use protocol::{FastMessage, FastMessageData, FastMessageStatus, FastParseError};
+use crate::protocol;
+use crate::protocol::{FastMessage, FastMessageData, FastMessageStatus, FastParseError};
 
 enum BufferAction {
     Keep,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 extern crate serde_json;
@@ -13,7 +13,9 @@ use bytes::{BufMut, BytesMut};
 use byteorder::{ByteOrder, BigEndian};
 use crc16::*;
 use num::{FromPrimitive, ToPrimitive};
+use num_derive::{FromPrimitive, ToPrimitive};
 use serde_json::Value;
+use serde_derive::{Deserialize, Serialize};
 use tokio_io::_tokio_codec::{Encoder, Decoder};
 
 
