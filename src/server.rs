@@ -1,17 +1,17 @@
 /*
- * Copyright 2018 Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 
-use slog::Logger;
+use slog::{Logger, debug, error};
 use tokio;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::codec::Decoder;
 
-use protocol::{FastRpc, FastMessage};
+use crate::protocol::{FastRpc, FastMessage};
 
 
 pub fn process(socket: TcpStream,
