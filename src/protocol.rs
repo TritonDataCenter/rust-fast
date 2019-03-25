@@ -91,7 +91,7 @@ impl FastMessageMetaData {
     pub fn new(n: String) -> FastMessageMetaData {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let now_micros = now.as_secs() * 1_000_000
-            + now.subsec_micros() as u64;
+            + u64::from(now.subsec_micros());
 
         FastMessageMetaData {
             uts: now_micros,
@@ -110,7 +110,7 @@ impl FastMessageData {
     pub fn new(n: String, d: Value) -> FastMessageData {
         FastMessageData {
             m: FastMessageMetaData::new(n),
-            d: d
+            d
         }
     }
 }
@@ -153,8 +153,8 @@ impl FastMessage {
             msg_type: header.msg_type,
             status: header.status,
             id: header.id,
-            msg_size: msg_size,
-            data: data
+            msg_size,
+            data
         })
     }
 
@@ -182,11 +182,11 @@ impl FastMessage {
         let data_len = BigEndian::read_u32(&buf[FP_OFF_DATALEN..FP_OFF_DATALEN+4]) as usize;
 
         Ok(FastMessageHeader {
-            msg_type: msg_type,
-            status: status,
+            msg_type,
+            status,
             id: msg_id,
             crc: expected_crc,
-            data_len: data_len
+            data_len
         })
     }
 
@@ -199,7 +199,7 @@ impl FastMessage {
     }
 
     fn validate_crc(data_buf: &[u8], crc: u32) -> Result<(), FastParseError> {
-        let calculated_crc = State::<ARC>::calculate(data_buf) as u32;
+        let calculated_crc = u32::from(State::<ARC>::calculate(data_buf));
         if crc != calculated_crc {
             // Oops, node-fast uses an old version of a crc lib with bug so just
             // ignore a mismatch for now.
@@ -237,7 +237,7 @@ impl FastMessage {
             status: FastMessageStatus::Data,
             id: msg_id,
             msg_size: None,
-            data: data
+            data
         }
     }
 
@@ -257,7 +257,7 @@ impl FastMessage {
             status: FastMessageStatus::Error,
             id: msg_id,
             msg_size: None,
-            data: data
+            data
         }
     }
 }
@@ -269,7 +269,7 @@ impl Decoder for FastRpc {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
-        if buf.len() > 0 {
+        if buf.is_empty() {
             let parsed_msg = FastMessage::parse(&buf).map_err(|pfr| {
                 let msg = format!("failed to parse Fast request: {}", Error::from(pfr));
                 Error::new(ErrorKind::Other, msg)
@@ -300,8 +300,8 @@ impl Encoder for FastRpc {
 }
 
 pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
-    let m_msg_type_u8 = ToPrimitive::to_u8(&msg.msg_type);
-    let m_status_u8 = ToPrimitive::to_u8(&msg.status);
+    let m_msg_type_u8 = msg.msg_type.to_u8();
+    let m_status_u8 = msg.status.to_u8();
     match (m_msg_type_u8, m_status_u8) {
         (Some(msg_type_u8), Some(status_u8)) => {
             let data_str = serde_json::to_string(&msg.data).unwrap();
@@ -314,7 +314,7 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             buf.put_u8(msg_type_u8);
             buf.put_u8(status_u8);
             buf.put_u32_be(msg.id);
-            buf.put_u32_be(State::<ARC>::calculate(data_str.as_bytes()) as u32);
+            buf.put_u32_be(u32::from(State::<ARC>::calculate(data_str.as_bytes())));
             buf.put_u32_be(data_str.len() as u32);
             buf.put(data_str);
             Ok(())
@@ -444,11 +444,11 @@ mod test {
             };
 
             FastMessage {
-                msg_type: msg_type,
-                status: status,
-                id: id,
+                msg_type,
+                status,
+                id,
                 msg_size: msg_sz,
-                data: data
+                data
             }
 
         }

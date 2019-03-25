@@ -41,7 +41,7 @@ pub fn receive(stream: &mut TcpStream,
     let mut total_bytes = 0;
     let mut result = Ok(total_bytes);
 
-    while stream_end == false {
+    while !stream_end {
         let mut read_buf = [0; 128];
         match stream.read(&mut read_buf) {
             Ok(byte_count) => {
@@ -80,7 +80,7 @@ fn parse_and_handle_messages(read_buf: &[u8],
 
     let mut result = Ok(BufferAction::Keep);
 
-    while done == false {
+    while !done {
         match FastMessage::parse(&read_buf[offset..]) {
             Ok(ref fm) if fm.status == FastMessageStatus::End => {
                 result = Ok(BufferAction::Done);
