@@ -2,17 +2,6 @@
  * Copyright 2018 Joyent, Inc.
  */
 
-
-extern crate chrono;
-extern crate rust_fast;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-#[macro_use]
-extern crate slog;
-extern crate slog_term;
-extern crate tokio;
-
 use std::env;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
@@ -21,7 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::prelude::*;
 use serde_json::Value;
-use slog::{Drain, Logger};
+use serde_derive::{Deserialize, Serialize};
+use slog::{Drain, Logger, debug, error, info, o};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 

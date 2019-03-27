@@ -2,19 +2,12 @@
  * Copyright 2018 Joyent, Inc.
  */
 
-extern crate bytes;
-#[macro_use]
-extern crate clap;
-extern crate rust_fast;
-extern crate serde_json;
-extern crate tokio;
-
 use std::io::Error;
 use std::net::{SocketAddr, TcpStream};
 use std::process;
 use std::sync::Arc;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{App, Arg, ArgMatches, crate_version, value_t};
 use serde_json::Value;
 
 use rust_fast::protocol::FastMessage;

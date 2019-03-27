@@ -2,8 +2,6 @@
  * Copyright 2019 Joyent, Inc.
  */
 
-extern crate serde_json;
-
 use std::{io, str, usize};
 use std::io::{Error, ErrorKind};
 
@@ -269,7 +267,7 @@ impl Decoder for FastRpc {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
-        if buf.is_empty() {
+        if !buf.is_empty() {
             let parsed_msg = FastMessage::parse(&buf).map_err(|pfr| {
                 let msg = format!("failed to parse Fast request: {}", Error::from(pfr));
                 Error::new(ErrorKind::Other, msg)
@@ -335,7 +333,7 @@ mod test {
 
     use std::iter;
 
-    use quickcheck::{Gen, Arbitrary};
+    use quickcheck::{Gen, Arbitrary, quickcheck};
     use rand::Rng;
     use rand::seq::SliceRandom;
     use rand::distributions::Alphanumeric;

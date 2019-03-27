@@ -5,7 +5,7 @@ authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
 edition = "2018"
 
 [dependencies]
-bytes = "0.4.10"
+bytes = "0.4.12"
 byteorder = "1.2.6"
 chrono = { version = "0.4.6", features = ["serde"] }
 crc16 = "0.4.0"
