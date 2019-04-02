@@ -4,7 +4,6 @@
 
 use std::io::{Error, ErrorKind};
 use std::net::TcpStream;
-use std::sync::Arc;
 
 use bytes::BytesMut;
 use serde_json::Value;
@@ -29,10 +28,10 @@ pub fn send(method: String, args: Value, stream: &mut TcpStream) -> Result<usize
     }
 }
 
-pub fn receive(
-    stream: &mut TcpStream,
-    response_handler: Arc<(Fn(&FastMessage) -> Result<(), Error>)>,
-) -> Result<usize, Error> {
+pub fn receive<F>(stream: &mut TcpStream, mut response_handler: F) -> Result<usize, Error>
+where
+    F: FnMut(&FastMessage) -> Result<(), Error>,
+{
     let mut stream_end = false;
     let mut msg_buf: Vec<u8> = Vec::new();
     let mut total_bytes = 0;
@@ -44,7 +43,7 @@ pub fn receive(
             Ok(byte_count) => {
                 total_bytes += byte_count;
                 msg_buf.extend_from_slice(&read_buf[0..byte_count]);
-                match parse_and_handle_messages(msg_buf.as_slice(), Arc::clone(&response_handler)) {
+                match parse_and_handle_messages(msg_buf.as_slice(), &mut response_handler) {
                     Ok(BufferAction::Keep) => (),
                     Ok(BufferAction::Trim(rest_offset)) => {
                         let truncate_bytes = msg_buf.len() - rest_offset;
@@ -68,10 +67,13 @@ pub fn receive(
     result
 }
 
-fn parse_and_handle_messages(
+fn parse_and_handle_messages<F>(
     read_buf: &[u8],
-    response_handler: Arc<(Fn(&FastMessage) -> Result<(), Error>)>,
-) -> Result<BufferAction, Error> {
+    response_handler: &mut F,
+) -> Result<BufferAction, Error>
+where
+    F: FnMut(&FastMessage) -> Result<(), Error>,
+{
     let mut offset = 0;
     let mut done = false;
 

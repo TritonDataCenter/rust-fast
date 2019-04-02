@@ -5,7 +5,6 @@
 use std::io::Error;
 use std::net::{SocketAddr, TcpStream};
 use std::process;
-use std::sync::Arc;
 
 use clap::{crate_version, value_t, App, Arg, ArgMatches};
 use serde_json::Value;
@@ -106,7 +105,7 @@ fn main() {
     });
 
     let result = client::send(method, args, &mut stream)
-        .and_then(|_bytes_written| client::receive(&mut stream, Arc::new(response_handler)));
+        .and_then(|_bytes_written| client::receive(&mut stream, response_handler));
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);

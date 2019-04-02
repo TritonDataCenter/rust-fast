@@ -100,7 +100,7 @@ fn client_server_comms() {
     let args_str = "[\"abc\"]";
     let args: Value = serde_json::from_str(args_str).unwrap();
     let _result = client::send(method, args, &mut stream)
-        .and_then(|_bytes_written| client::receive(&mut stream, Arc::new(response_handler)));
+        .and_then(|_bytes_written| client::receive(&mut stream, response_handler));
 
     assert!(true);
 }
