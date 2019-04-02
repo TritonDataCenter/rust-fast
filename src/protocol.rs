@@ -2,20 +2,19 @@
  * Copyright 2019 Joyent, Inc.
  */
 
-use std::{io, str, usize};
 use std::io::{Error, ErrorKind};
+use std::{io, str, usize};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use byteorder::{BigEndian, ByteOrder};
 use bytes::{BufMut, BytesMut};
-use byteorder::{ByteOrder, BigEndian};
 use crc16::*;
 use num::{FromPrimitive, ToPrimitive};
 use num_derive::{FromPrimitive, ToPrimitive};
-use serde_json::Value;
 use serde_derive::{Deserialize, Serialize};
-use tokio_io::_tokio_codec::{Encoder, Decoder};
-
+use serde_json::Value;
+use tokio_io::_tokio_codec::{Decoder, Encoder};
 
 /*
  * Message IDs: each Fast message has a message id, which is scoped to the Fast
@@ -23,22 +22,22 @@ use tokio_io::_tokio_codec::{Encoder, Decoder};
  */
 // const FP_MSGID_MAX: u32 = i32::max_value() as u32;
 
-const FP_OFF_TYPE: usize    = 0x1;
-const FP_OFF_STATUS: usize  = 0x2;
-const FP_OFF_MSGID: usize   = 0x3;
-const FP_OFF_CRC: usize     = 0x7;
+const FP_OFF_TYPE: usize = 0x1;
+const FP_OFF_STATUS: usize = 0x2;
+const FP_OFF_MSGID: usize = 0x3;
+const FP_OFF_CRC: usize = 0x7;
 const FP_OFF_DATALEN: usize = 0xb;
-const FP_OFF_DATA: usize    = 0xf;
+const FP_OFF_DATA: usize = 0xf;
 
 pub const FP_HEADER_SZ: usize = FP_OFF_DATA;
 
-const FP_VERSION_1: u8       = 0x1;
+const FP_VERSION_1: u8 = 0x1;
 const FP_VERSION_CURRENT: u8 = FP_VERSION_1;
 
 #[derive(Debug)]
 pub enum FastParseError {
     NotEnoughBytes(usize),
-    IOError(Error)
+    IOError(Error),
 }
 
 impl From<io::Error> for FastParseError {
@@ -53,22 +52,22 @@ impl From<FastParseError> for Error {
             FastParseError::NotEnoughBytes(_) => {
                 let msg = "Unable to parse message: not enough bytes";
                 Error::new(ErrorKind::Other, msg)
-            },
-            FastParseError::IOError(e) => e
+            }
+            FastParseError::IOError(e) => e,
         }
     }
 }
 
 #[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageType {
-    Json = 1
+    Json = 1,
 }
 
 #[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageStatus {
     Data = 1,
     End = 2,
-    Error = 3
+    Error = 3,
 }
 
 pub struct FastMessageHeader {
@@ -76,24 +75,23 @@ pub struct FastMessageHeader {
     status: FastMessageStatus,
     id: u32,
     crc: u32,
-    data_len: usize
+    data_len: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageMetaData {
     pub uts: u64,
-    pub name: String
+    pub name: String,
 }
 
 impl FastMessageMetaData {
     pub fn new(n: String) -> FastMessageMetaData {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let now_micros = now.as_secs() * 1_000_000
-            + u64::from(now.subsec_micros());
+        let now_micros = now.as_secs() * 1_000_000 + u64::from(now.subsec_micros());
 
         FastMessageMetaData {
             uts: now_micros,
-            name: n
+            name: n,
         }
     }
 }
@@ -101,14 +99,14 @@ impl FastMessageMetaData {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageData {
     pub m: FastMessageMetaData,
-    pub d: Value
+    pub d: Value,
 }
 
 impl FastMessageData {
     pub fn new(n: String, d: Value) -> FastMessageData {
         FastMessageData {
             m: FastMessageMetaData::new(n),
-            d
+            d,
         }
     }
 }
@@ -119,7 +117,7 @@ pub struct FastMessage {
     pub status: FastMessageStatus,
     pub id: u32,
     pub msg_size: Option<usize>,
-    pub data: FastMessageData
+    pub data: FastMessageData,
 }
 
 impl PartialEq for FastMessage {
@@ -144,7 +142,7 @@ impl FastMessage {
 
         let msg_size = match header.status {
             FastMessageStatus::End => None,
-            _ => Some(FP_OFF_DATA + header.data_len)
+            _ => Some(FP_OFF_DATA + header.data_len),
         };
 
         Ok(FastMessage {
@@ -152,7 +150,7 @@ impl FastMessage {
             status: header.status,
             id: header.id,
             msg_size,
-            data
+            data,
         })
     }
 
@@ -165,26 +163,24 @@ impl FastMessage {
     }
 
     pub fn parse_header(buf: &[u8]) -> Result<FastMessageHeader, FastParseError> {
-        let msg_type = FromPrimitive::from_u8(buf[FP_OFF_TYPE])
-            .ok_or_else(|| {
-                let msg = "Failed to parse message type";
-                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-            })?;
-        let status = FromPrimitive::from_u8(buf[FP_OFF_STATUS])
-            .ok_or_else(|| {
-                let msg = "Failed to parse message status";
-                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-            })?;
-        let msg_id = BigEndian::read_u32(&buf[FP_OFF_MSGID..FP_OFF_MSGID+4]);
-        let expected_crc = BigEndian::read_u32(&buf[FP_OFF_CRC..FP_OFF_CRC+4]);
-        let data_len = BigEndian::read_u32(&buf[FP_OFF_DATALEN..FP_OFF_DATALEN+4]) as usize;
+        let msg_type = FromPrimitive::from_u8(buf[FP_OFF_TYPE]).ok_or_else(|| {
+            let msg = "Failed to parse message type";
+            FastParseError::IOError(Error::new(ErrorKind::Other, msg))
+        })?;
+        let status = FromPrimitive::from_u8(buf[FP_OFF_STATUS]).ok_or_else(|| {
+            let msg = "Failed to parse message status";
+            FastParseError::IOError(Error::new(ErrorKind::Other, msg))
+        })?;
+        let msg_id = BigEndian::read_u32(&buf[FP_OFF_MSGID..FP_OFF_MSGID + 4]);
+        let expected_crc = BigEndian::read_u32(&buf[FP_OFF_CRC..FP_OFF_CRC + 4]);
+        let data_len = BigEndian::read_u32(&buf[FP_OFF_DATALEN..FP_OFF_DATALEN + 4]) as usize;
 
         Ok(FastMessageHeader {
             msg_type,
             status,
             id: msg_id,
             crc: expected_crc,
-            data_len
+            data_len,
         })
     }
 
@@ -215,13 +211,10 @@ impl FastMessage {
 
     fn parse_data(data_buf: &[u8]) -> Result<FastMessageData, FastParseError> {
         match str::from_utf8(data_buf) {
-            Ok(data_str) => {
-                serde_json::from_str(data_str)
-                .map_err(|_e| {
-                    let msg = "Failed to parse data payload as JSON";
-                    FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-                })
-            },
+            Ok(data_str) => serde_json::from_str(data_str).map_err(|_e| {
+                let msg = "Failed to parse data payload as JSON";
+                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
+            }),
             Err(_) => {
                 let msg = "Failed to parse data payload as UTF-8";
                 Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
@@ -235,7 +228,7 @@ impl FastMessage {
             status: FastMessageStatus::Data,
             id: msg_id,
             msg_size: None,
-            data
+            data,
         }
     }
 
@@ -245,7 +238,7 @@ impl FastMessage {
             status: FastMessageStatus::End,
             id: msg_id,
             msg_size: None,
-            data: FastMessageData::new(method, Value::Array(vec![]))
+            data: FastMessageData::new(method, Value::Array(vec![])),
         }
     }
 
@@ -255,7 +248,7 @@ impl FastMessage {
             status: FastMessageStatus::Error,
             id: msg_id,
             msg_size: None,
-            data
+            data,
         }
     }
 }
@@ -280,19 +273,16 @@ impl Decoder for FastRpc {
     }
 }
 
-
 impl Encoder for FastRpc {
     type Item = Vec<FastMessage>;
     //TODO: Create custom FastMessage error type
     type Error = io::Error;
     fn encode(&mut self, item: Self::Item, buf: &mut BytesMut) -> Result<(), io::Error> {
-        let results: Vec<Result<(), String>> = item.iter().map(|x| { encode_msg(x, buf) }).collect();
+        let results: Vec<Result<(), String>> = item.iter().map(|x| encode_msg(x, buf)).collect();
         let result: Result<Vec<()>, String> = results.iter().cloned().collect();
         match result {
             Ok(_) => Ok(()),
-            Err(errs) => {
-                Err(Error::new(ErrorKind::Other, errs))
-            }
+            Err(errs) => Err(Error::new(ErrorKind::Other, errs)),
         }
     }
 }
@@ -316,16 +306,12 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             buf.put_u32_be(data_str.len() as u32);
             buf.put(data_str);
             Ok(())
-        },
-        (None, Some(_)) =>
-            Err(String::from("Invalid message type")),
-        (Some(_), None) =>
-            Err(String::from("Invalid status")),
-        (None, None) =>
-            Err(String::from("Invalid message type and status"))
+        }
+        (None, Some(_)) => Err(String::from("Invalid message type")),
+        (Some(_), None) => Err(String::from("Invalid status")),
+        (None, None) => Err(String::from("Invalid message type and status")),
     }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -333,12 +319,11 @@ mod test {
 
     use std::iter;
 
-    use quickcheck::{Gen, Arbitrary, quickcheck};
-    use rand::Rng;
-    use rand::seq::SliceRandom;
+    use quickcheck::{quickcheck, Arbitrary, Gen};
     use rand::distributions::Alphanumeric;
+    use rand::seq::SliceRandom;
+    use rand::Rng;
     use serde_json::Map;
-
 
     fn random_string<G: Gen>(g: &mut G, len: usize) -> String {
         iter::repeat(())
@@ -356,14 +341,14 @@ mod test {
         let mut inner_obj = Map::new();
         let mut outer_obj = Map::new();
         let _ = inner_obj.insert(k, Value::String(v));
-        outer_obj.insert(String::from("value"), Value::Object(inner_obj))
+        outer_obj
+            .insert(String::from("value"), Value::Object(inner_obj))
             .and_then(|_| outer_obj.insert(String::from("count"), count.into()));
         Value::Object(outer_obj)
     }
 
     #[derive(Clone, Debug)]
     struct MessageCount(u8);
-
 
     impl Arbitrary for MessageCount {
         fn arbitrary<G: Gen>(g: &mut G) -> MessageCount {
@@ -379,20 +364,18 @@ mod test {
     impl Arbitrary for FastMessageStatus {
         fn arbitrary<G: Gen>(g: &mut G) -> FastMessageStatus {
             let choices = [
-                FastMessageStatus::Data ,
+                FastMessageStatus::Data,
                 FastMessageStatus::End,
-                FastMessageStatus::Error
+                FastMessageStatus::Error,
             ];
 
-           choices.choose(g).unwrap().clone()
+            choices.choose(g).unwrap().clone()
         }
     }
 
     impl Arbitrary for FastMessageType {
         fn arbitrary<G: Gen>(g: &mut G) -> FastMessageType {
-            let choices = [
-                FastMessageType::Json
-            ];
+            let choices = [FastMessageType::Json];
 
             choices.choose(g).unwrap().clone()
         }
@@ -413,15 +396,12 @@ mod test {
                 Value::Array(vec![]),
                 Value::Object(Map::new()),
                 nested_object(g),
-                Value::Array(vec![nested_object(g)])
+                Value::Array(vec![nested_object(g)]),
             ];
 
             let value = choices.choose(g).unwrap().clone();
 
-            FastMessageData {
-                m: md,
-                d: value
-            }
+            FastMessageData { m: md, d: value }
         }
     }
 
@@ -435,10 +415,7 @@ mod test {
             let data_str = serde_json::to_string(&data).unwrap();
             let msg_sz = match status {
                 FastMessageStatus::End => None,
-                _ => {
-                    Some(FP_OFF_DATA + data_str.len())
-                }
-
+                _ => Some(FP_OFF_DATA + data_str.len()),
             };
 
             FastMessage {
@@ -446,9 +423,8 @@ mod test {
                 status,
                 id,
                 msg_size: msg_sz,
-                data
+                data,
             }
-
         }
     }
 
