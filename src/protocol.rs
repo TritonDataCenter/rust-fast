@@ -260,15 +260,30 @@ impl Decoder for FastRpc {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
-        if !buf.is_empty() {
+        let mut msgs: Self::Item = Vec::new();
+
+        while !buf.is_empty() {
+            // Make sure there is room in msgs to fit a message
+            if msgs.len() + 1 > msgs.capacity() {
+                msgs.reserve(1);
+            }
+
             let parsed_msg = FastMessage::parse(&buf).map_err(|pfr| {
                 let msg = format!("failed to parse Fast request: {}", Error::from(pfr));
                 Error::new(ErrorKind::Other, msg)
             })?;
-            buf.clear();
-            Ok(Some(vec![parsed_msg]))
-        } else {
+
+            // TODO: Handle the error case here!
+            let data_str = serde_json::to_string(&parsed_msg.data).unwrap();
+            let data_len = data_str.len();
+            buf.advance(FP_HEADER_SZ + data_len);
+            msgs.push(parsed_msg);
+        }
+
+        if msgs.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(msgs))
         }
     }
 }
@@ -292,6 +307,7 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
     let m_status_u8 = msg.status.to_u8();
     match (m_msg_type_u8, m_status_u8) {
         (Some(msg_type_u8), Some(status_u8)) => {
+            // TODO: Handle the error case here!
             let data_str = serde_json::to_string(&msg.data).unwrap();
             let data_len = data_str.len();
             let buf_capacity = buf.capacity();
@@ -455,21 +471,66 @@ mod test {
                     }
                 }
             }
-            if error_occurred == true {
-                false
-            } else {
-                let msg_size = write_buf.len() / msg_count.0 as usize;
-                let mut offset = 0;
-                for _ in 0..msg_count.0 {
-                    match FastMessage::parse(&write_buf[offset..offset+msg_size]) {
-                        Ok(decoded_msg) => error_occurred = decoded_msg == msg,
-                        Err(_) => error_occurred = false
-                    }
-                    offset += msg_size;
-                }
 
-                error_occurred
+            if error_occurred {
+                return false;
             }
+
+            let msg_size = write_buf.len() / msg_count.0 as usize;
+            let mut offset = 0;
+            for _ in 0..msg_count.0 {
+                match FastMessage::parse(&write_buf[offset..offset+msg_size]) {
+                    Ok(decoded_msg) => error_occurred = decoded_msg != msg,
+                    Err(_) => error_occurred = true
+                }
+                offset += msg_size;
+            }
+
+            !error_occurred
+        }
+    }
+
+    quickcheck! {
+        fn prop_fast_message_decoding(msg: FastMessage, msg_count: MessageCount) -> bool {
+            let mut write_buf = BytesMut::new();
+            let mut error_occurred = false;
+            let mut fast_msgs: Vec<FastMessage> =
+                Vec::with_capacity(msg_count.0 as usize);
+
+            (0..msg_count.0).for_each(|_| {
+                fast_msgs.push(msg.clone());
+            });
+
+            let mut fast_rpc = FastRpc;
+            let encode_res = fast_rpc.encode(fast_msgs, &mut write_buf);
+
+            if encode_res.is_err() {
+                return false;
+            }
+
+            let decode_result = fast_rpc.decode(&mut write_buf);
+            if decode_result.is_err() {
+                return false;
+            }
+
+            let m_decoded_msgs = decode_result.unwrap();
+
+
+            if m_decoded_msgs.is_none() {
+                return false;
+            }
+
+            let decoded_msgs = m_decoded_msgs.unwrap();
+            if decoded_msgs.len() != msg_count.0 as usize {
+                return false;
+            }
+
+
+            for decoded_msg in decoded_msgs {
+                error_occurred = decoded_msg != msg;
+            }
+
+            !error_occurred
         }
     }
 }

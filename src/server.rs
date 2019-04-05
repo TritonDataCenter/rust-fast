@@ -2,8 +2,7 @@
  * Copyright 2019 Joyent, Inc.
  */
 
-use std::io::{Error, ErrorKind};
-use std::sync::Arc;
+use std::io::Error;
 
 use slog::{debug, error, Logger};
 use tokio;
@@ -13,56 +12,78 @@ use tokio::prelude::*;
 
 use crate::protocol::{FastMessage, FastRpc};
 
-pub fn process(
+pub fn make_task<F>(
     socket: TcpStream,
-    response_handler: Arc<
-        (Fn(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send + Sync),
-    >,
+    mut response_handler: F,
     log: &Logger,
-) {
+) -> impl Future<Item = (), Error = ()> + Send
+where
+    F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send + Sync,
+{
     let (tx, rx) = FastRpc.framed(socket).split();
     let rx_log = log.clone();
     let tx_log = log.clone();
-    let task = tx
-        .send_all(rx.and_then(move |x| {
-            debug!(rx_log, "processing fast message");
-            let c = Arc::clone(&response_handler);
-            respond(x, c, &rx_log)
-        }))
-        .then(move |res| {
-            if let Err(e) = res {
-                error!(tx_log, "failed to process connection"; "err" => %e);
-                //TODO: Send error response to client
-            }
+    tx.send_all(rx.and_then(move |x| {
+        debug!(rx_log, "processing fast message");
+        respond(x, &mut response_handler, &rx_log)
+    }))
+    .then(move |res| {
+        if let Err(e) = res {
+            error!(tx_log, "failed to process connection"; "err" => %e);
+        }
 
-            debug!(tx_log, "transmitted response to client");
-            Ok(())
-        });
-
-    // Spawn the task that handles the connection.
-    tokio::spawn(task);
+        debug!(tx_log, "transmitted response to client");
+        Ok(())
+    })
 }
 
-pub fn respond(
+fn respond<F>(
     msgs: Vec<FastMessage>,
-    response_handler: Arc<
-        (Fn(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Sync + Send),
-    >,
+    response_handler: &mut F,
     log: &Logger,
-) -> impl Future<Item = Vec<FastMessage>, Error = Error> + Send {
-    match msgs.get(0) {
-        Some(msg) => match response_handler(msg, &log) {
+) -> impl Future<Item = Vec<FastMessage>, Error = Error> + Send
+where
+    F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
+{
+    debug!(log, "responding to {} messages", msgs.len());
+
+    let mut responses: Vec<FastMessage> = Vec::new();
+    let mut error: Option<Error> = None;
+
+    for msg in msgs {
+        match response_handler(&msg, &log) {
             Ok(mut response) => {
+                // Make sure there is room in responses to fit another response plus an
+                // end message
+                let responses_len = responses.len();
+                let response_len = response.len();
+                let responses_capacity = responses.capacity();
+                if responses_len + response_len > responses_capacity {
+                    let needed_capacity = responses_len + response_len - responses_capacity;
+                    responses.reserve(needed_capacity);
+                }
+
+                // Add all response messages for this message to the vector of
+                // all responses
+                response.drain(..).for_each(|r| {
+                    responses.push(r);
+                });
+
                 debug!(log, "generated response");
                 let method = msg.data.m.name.clone();
-                response.push(FastMessage::end(msg.id, method));
-                Box::new(future::ok(response))
+                responses.push(FastMessage::end(msg.id, method));
             }
-            Err(err) => Box::new(future::err(err)),
-        },
-        None => Box::new(future::err(Error::new(
-            ErrorKind::Other,
-            "no message available",
-        ))),
+            Err(err) => {
+                error = Some(err);
+            }
+        }
     }
+
+    let fut = if let Some(err) = error {
+        future::err(err)
+    } else {
+        future::ok(responses)
+    };
+
+    Box::new(fut)
 }
