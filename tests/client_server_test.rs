@@ -43,8 +43,8 @@ fn run_server(barrier: Arc<Barrier>) {
         o!("build-id" => "0.1.0"),
     );
 
-    let addr = env::args().nth(1).unwrap_or("127.0.0.1:56655".to_string());
-    let addr = addr.parse::<SocketAddr>().unwrap();
+    let addr_str = env::args().nth(1).unwrap_or("127.0.0.1:56655".to_string());
+    let addr = addr_str.parse::<SocketAddr>().unwrap();
 
     let listener = TcpListener::bind(&addr).expect("failed to bind");
     info!(root_log, "listening for fast requests"; "address" => addr);
@@ -58,7 +58,8 @@ fn run_server(barrier: Arc<Barrier>) {
             .incoming()
             .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
             .for_each(move |socket| {
-                server::process(socket, Arc::new(msg_handler), &process_log);
+                let task = server::make_task(socket, msg_handler, &process_log);
+                tokio::spawn(task);
                 Ok(())
             })
     });
@@ -88,8 +89,8 @@ fn client_server_comms() {
 
     barrier.clone().wait();
 
-    let addr = env::args().nth(1).unwrap_or("127.0.0.1:56655".to_string());
-    let addr = addr.parse::<SocketAddr>().unwrap();
+    let addr_str = env::args().nth(1).unwrap_or("127.0.0.1:56655".to_string());
+    let addr = addr_str.parse::<SocketAddr>().unwrap();
 
     let mut stream = TcpStream::connect(&addr).unwrap_or_else(|e| {
         eprintln!("Failed to connect to server: {}", e);
