@@ -261,23 +261,35 @@ impl Decoder for FastRpc {
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
         let mut msgs: Self::Item = Vec::new();
+        let mut done = false;
 
-        while !buf.is_empty() {
+        while !done && !buf.is_empty() {
             // Make sure there is room in msgs to fit a message
             if msgs.len() + 1 > msgs.capacity() {
                 msgs.reserve(1);
             }
 
-            let parsed_msg = FastMessage::parse(&buf).map_err(|pfr| {
-                let msg = format!("failed to parse Fast request: {}", Error::from(pfr));
-                Error::new(ErrorKind::Other, msg)
-            })?;
-
-            // TODO: Handle the error case here!
-            let data_str = serde_json::to_string(&parsed_msg.data).unwrap();
-            let data_len = data_str.len();
-            buf.advance(FP_HEADER_SZ + data_len);
-            msgs.push(parsed_msg);
+            match FastMessage::parse(&buf) {
+                Ok(parsed_msg) => {
+                    // TODO: Handle the error case here!
+                    let data_str = serde_json::to_string(&parsed_msg.data).unwrap();
+                    let data_len = data_str.len();
+                    buf.advance(FP_HEADER_SZ + data_len);
+                    msgs.push(parsed_msg);
+                    Ok(())
+                },
+                Err(FastParseError::NotEnoughBytes(_)) => {
+                    // Not enough bytes available yet so we need to return
+                    // Ok(None) to let the Framed instance know to read more
+                    // data before calling this function again.
+                    done = true;
+                    Ok(())
+                },
+                Err(err) => {
+                    let msg = format!("failed to parse Fast request: {}", Error::from(err));
+                    Err(Error::new(ErrorKind::Other, msg))
+                }
+            }?
         }
 
         if msgs.is_empty() {
