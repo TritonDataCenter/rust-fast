@@ -1,5 +1,5 @@
 use std::io::{Error, ErrorKind};
-use std::net::{SocketAddr, Shutdown, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::process;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
@@ -62,7 +62,7 @@ fn run_server(barrier: Arc<Barrier>) {
                         Ok(())
                     })
             })
-        },
+        }
         Err(e) => {
             eprintln!("error parsing address: {}", e);
         }
@@ -71,8 +71,7 @@ fn run_server(barrier: Arc<Barrier>) {
 
 fn assert_handler(expected_data_size: usize) -> impl Fn(&FastMessage) {
     move |msg| {
-         let data: Vec<String> =
-            serde_json::from_value(msg.data.d.clone()).unwrap();
+        let data: Vec<String> = serde_json::from_value(msg.data.d.clone()).unwrap();
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].len(), expected_data_size);
     }

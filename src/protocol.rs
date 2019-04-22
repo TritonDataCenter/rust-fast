@@ -58,6 +58,12 @@ impl From<FastParseError> for Error {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct FastMessageServerError {
+    pub message: String,
+    pub name: String,
+}
+
 #[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageType {
     Json = 1,
@@ -277,14 +283,14 @@ impl Decoder for FastRpc {
                     buf.advance(FP_HEADER_SZ + data_len);
                     msgs.push(parsed_msg);
                     Ok(())
-                },
+                }
                 Err(FastParseError::NotEnoughBytes(_)) => {
                     // Not enough bytes available yet so we need to return
                     // Ok(None) to let the Framed instance know to read more
                     // data before calling this function again.
                     done = true;
                     Ok(())
-                },
+                }
                 Err(err) => {
                     let msg = format!("failed to parse Fast request: {}", Error::from(err));
                     Err(Error::new(ErrorKind::Other, msg))
