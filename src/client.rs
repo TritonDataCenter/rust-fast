@@ -11,7 +11,11 @@ use tokio::prelude::*;
 
 use crate::protocol;
 use crate::protocol::{
-    FastMessage, FastMessageData, FastMessageServerError, FastMessageStatus, FastParseError,
+    FastMessage,
+    FastMessageData,
+    FastMessageServerError,
+    FastMessageStatus,
+    FastParseError
 };
 
 enum BufferAction {

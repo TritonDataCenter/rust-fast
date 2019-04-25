@@ -58,7 +58,7 @@ impl From<FastParseError> for Error {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct FastMessageServerError {
     pub message: String,
     pub name: String,
