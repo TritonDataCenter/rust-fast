@@ -10,7 +10,13 @@ use serde_json::Value;
 use tokio::prelude::*;
 
 use crate::protocol;
-use crate::protocol::{FastMessage, FastMessageData, FastMessageStatus, FastParseError};
+use crate::protocol::{
+    FastMessage,
+    FastMessageData,
+    FastMessageServerError,
+    FastMessageStatus,
+    FastParseError
+};
 
 enum BufferAction {
     Keep,
@@ -87,8 +93,29 @@ where
             }
             Ok(fm) => {
                 offset += fm.msg_size.unwrap();
-                let _ = response_handler(&fm);
-                result = Ok(BufferAction::Trim(offset));
+                match fm.status {
+                    FastMessageStatus::Data | FastMessageStatus::End => {
+                        if let Err(e) = response_handler(&fm) {
+                            result = Err(e);
+                            done = true;
+                        } else {
+                            result = Ok(BufferAction::Trim(offset));
+                        }
+                    }
+                    FastMessageStatus::Error => {
+                        let err: FastMessageServerError = serde_json::from_value(fm.data.d)
+                            .unwrap_or(FastMessageServerError {
+                                name: String::from("UnspecifiedServerError"),
+                                message: String::from("Server reported unspecified error."),
+                            });
+
+                        result = Err(Error::new(
+                            ErrorKind::Other,
+                            format!("{}: {}", err.name, err.message),
+                        ));
+                        done = true;
+                    }
+                }
             }
             Err(FastParseError::NotEnoughBytes(_bytes)) => {
                 done = true;
