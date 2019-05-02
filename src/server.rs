@@ -18,7 +18,7 @@ pub fn make_task<F>(
     log: &Logger,
 ) -> impl Future<Item = (), Error = ()> + Send
 where
-    F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send + Sync,
+    F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
 {
     let (tx, rx) = FastRpc.framed(socket).split();
     let rx_log = log.clone();
