@@ -10,7 +10,7 @@ use clap::{crate_version, value_t, App, Arg, ArgMatches};
 use serde_json::Value;
 
 use rust_fast::client;
-use rust_fast::protocol::FastMessage;
+use rust_fast::protocol::{FastMessage, FastMessageId};
 
 static APP: &'static str = "fastcall";
 static DEFAULT_HOST: &'static str = "127.0.0.1";
@@ -104,7 +104,9 @@ fn main() {
         process::exit(1)
     });
 
-    let result = client::send(method, args, &mut stream)
+    let mut msg_id = FastMessageId::new();
+
+    let result = client::send(method, args, &mut msg_id, &mut stream)
         .and_then(|_bytes_written| client::receive(&mut stream, response_handler));
 
     if let Err(e) = result {

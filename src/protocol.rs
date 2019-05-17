@@ -4,7 +4,7 @@
 
 use std::io::{Error, ErrorKind};
 use std::{io, str, usize};
-
+use std::sync::atomic::AtomicUsize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use byteorder::{BigEndian, ByteOrder};
@@ -16,11 +16,6 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_io::_tokio_codec::{Decoder, Encoder};
 
-/*
- * Message IDs: each Fast message has a message id, which is scoped to the Fast
- * connection.  We allocate these sequentially from a circular 31-bit space.
- */
-// const FP_MSGID_MAX: u32 = i32::max_value() as u32;
 
 const FP_OFF_TYPE: usize = 0x1;
 const FP_OFF_STATUS: usize = 0x2;
@@ -29,11 +24,52 @@ const FP_OFF_CRC: usize = 0x7;
 const FP_OFF_DATALEN: usize = 0xb;
 const FP_OFF_DATA: usize = 0xf;
 
+/// The size of a Fast message header
 pub const FP_HEADER_SZ: usize = FP_OFF_DATA;
 
 const FP_VERSION_1: u8 = 0x1;
 const FP_VERSION_CURRENT: u8 = FP_VERSION_1;
 
+/// A data type representing a Fast message id that can safely be shard between
+/// threads. The `next` associated function retrieves the next id value and
+/// manages the circular message id space internally.
+#[derive(Default)]
+pub struct FastMessageId(AtomicUsize);
+
+impl FastMessageId {
+    /// Creates a new FastMessageId
+    pub fn new() -> Self {
+        FastMessageId(AtomicUsize::new(0x0))
+    }
+
+
+    // pub fn next(&mut self) -> usize {
+    //     let id_value = self.0.get_mut();
+    //     let current = *id_value;
+    //     *id_value = (*id_value + 1) % (usize::max_value() - 1);
+
+    //     current
+    // }
+}
+
+impl Iterator for FastMessageId {
+    type Item = usize;
+
+    // next() is the only required method
+    /// Returns the next Fast message id and increments the value modulo the
+    /// usize MAX_VALUE - 1.
+    fn next(&mut self) -> Option<Self::Item> {
+        // Increment our count. This is why we started at zero.
+        let id_value = self.0.get_mut();
+        let current = *id_value;
+        *id_value = (*id_value + 1) % (usize::max_value() - 1);
+
+        Some(current)
+    }
+}
+
+
+/// An error type representing a failure to parse a buffer as a Fast message.
 #[derive(Debug)]
 pub enum FastParseError {
     NotEnoughBytes(usize),
@@ -58,17 +94,40 @@ impl From<FastParseError> for Error {
     }
 }
 
+/// An error type representing Fast error messages that may be returned from a
+/// Fast server.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FastMessageServerError {
-    pub message: String,
     pub name: String,
+    pub message: String,
 }
 
+impl FastMessageServerError {
+    pub fn new(name: &str, message: &str) -> Self {
+        FastMessageServerError {
+            name: String::from(name),
+            message: String::from(message)
+        }
+    }
+}
+
+impl From<FastMessageServerError> for Error {
+    fn from(err: FastMessageServerError) -> Self {
+        Error::new(
+            ErrorKind::Other,
+            format!("{}: {}", err.name, err.message)
+        )
+    }
+}
+
+/// Represents the Type field of a Fast message. Currently there is only one
+/// valid value, JSON.
 #[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageType {
     Json = 1,
 }
 
+/// Represents the Status field of a Fast message.
 #[derive(Debug, FromPrimitive, ToPrimitive, PartialEq, Clone)]
 pub enum FastMessageStatus {
     Data = 1,
@@ -76,14 +135,22 @@ pub enum FastMessageStatus {
     Error = 3,
 }
 
+/// This type encapsulates the header of a Fast message.
 pub struct FastMessageHeader {
+    /// The Type field of the Fast message
     msg_type: FastMessageType,
+    /// The Status field of the Fast message
     status: FastMessageStatus,
+    /// The Fast message identifier
     id: u32,
+    /// The CRC16 check value of the Fast message data payload
     crc: u32,
+    /// The length in bytes of the Fast message data payload
     data_len: usize,
 }
 
+/// Represents the metadata about a `FastMessage` data payload. This includes a
+/// timestamp and an RPC method name.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageMetaData {
     pub uts: u64,
@@ -102,6 +169,7 @@ impl FastMessageMetaData {
     }
 }
 
+/// Encapsulates the Fast message metadata and the JSON formatted message data.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct FastMessageData {
     pub m: FastMessageMetaData,
@@ -117,12 +185,19 @@ impl FastMessageData {
     }
 }
 
+
+/// Represents a Fast message including the header and data payload
 #[derive(Debug, Clone)]
 pub struct FastMessage {
+    /// The Type field of the Fast message
     pub msg_type: FastMessageType,
+    /// The Status field of the Fast message
     pub status: FastMessageStatus,
+    /// The Fast message identifier
     pub id: u32,
+    /// The length in bytes of the Fast message data payload
     pub msg_size: Option<usize>,
+    /// The data payload of the Fast message
     pub data: FastMessageData,
 }
 
@@ -137,6 +212,8 @@ impl PartialEq for FastMessage {
 }
 
 impl FastMessage {
+    /// Parse a byte buffer into a `FastMessage`. Returns a `FastParseError` if
+    /// the available bytes cannot be parsed to a `FastMessage`.
     pub fn parse(buf: &[u8]) -> Result<FastMessage, FastParseError> {
         FastMessage::check_buffer_size(buf)?;
         let header = FastMessage::parse_header(buf)?;
@@ -160,6 +237,8 @@ impl FastMessage {
         })
     }
 
+    /// Check that the provided byte buffer contains at least `FP_HEADER_SZ`
+    /// bytes.  Returns a `FastParseError` if this is not the case.
     pub fn check_buffer_size(buf: &[u8]) -> Result<(), FastParseError> {
         if buf.len() < FP_HEADER_SZ {
             Err(FastParseError::NotEnoughBytes(buf.len()))
@@ -168,6 +247,9 @@ impl FastMessage {
         }
     }
 
+    /// Parse a portion of a byte buffer into a `FastMessageHeader`. Returns a
+    /// `FastParseError` if the available bytes cannot be parsed to a
+    /// `FastMessageHeader`.
     pub fn parse_header(buf: &[u8]) -> Result<FastMessageHeader, FastParseError> {
         let msg_type = FromPrimitive::from_u8(buf[FP_OFF_TYPE]).ok_or_else(|| {
             let msg = "Failed to parse message type";
@@ -221,6 +303,8 @@ impl FastMessage {
         }
     }
 
+    /// Returns a `FastMessage` that represents a Fast protocol `DATA` message
+    /// with the provided message identifer and data payload.
     pub fn data(msg_id: u32, data: FastMessageData) -> FastMessage {
         FastMessage {
             msg_type: FastMessageType::Json,
@@ -231,6 +315,9 @@ impl FastMessage {
         }
     }
 
+    /// Returns a `FastMessage` that represents a Fast protocol `END` message
+    /// with the provided message identifer. The method parameter is used in the
+    /// otherwise empty data payload.
     pub fn end(msg_id: u32, method: String) -> FastMessage {
         FastMessage {
             msg_type: FastMessageType::Json,
@@ -241,6 +328,8 @@ impl FastMessage {
         }
     }
 
+    /// Returns a `FastMessage` that represents a Fast protocol `ERROR` message
+    /// with the provided message identifer and data payload.
     pub fn error(msg_id: u32, data: FastMessageData) -> FastMessage {
         FastMessage {
             msg_type: FastMessageType::Json,
@@ -252,6 +341,7 @@ impl FastMessage {
     }
 }
 
+/// This type implements the functions necessary for the Fast protocl framing.
 pub struct FastRpc;
 
 impl Decoder for FastRpc {
@@ -313,6 +403,8 @@ impl Encoder for FastRpc {
     }
 }
 
+/// Encode a `FastMessage` into a byte buffer. The `Result` contains a unit type
+/// on success and an error string on failure.
 pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
     let m_msg_type_u8 = msg.msg_type.to_u8();
     let m_status_u8 = msg.status.to_u8();

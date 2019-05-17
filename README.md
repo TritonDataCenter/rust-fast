@@ -4,9 +4,11 @@ Fast is a simple RPC protocol used in Joyent's
 [Triton](http://github.com/joyent/triton) and
 [Manta](https://github.com/joyent/manta) systems, particularly in the
 [Moray](https://github.com/joyent/moray) key-value store.  This README contains
-usage notes.  For developers, see CONTRIBUTING.md.
+usage notes.
 
-This is a rust implementation of the Fast protocol.
+The original implementation is
+[node-fast](https://github.com/joyent/node-fast). This is the rust
+implementation of the Fast protocol.
 
 This crate includes:
 
