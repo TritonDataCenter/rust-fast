@@ -201,15 +201,8 @@ impl FastMessage {
     fn validate_crc(data_buf: &[u8], crc: u32) -> Result<(), FastParseError> {
         let calculated_crc = u32::from(State::<ARC>::calculate(data_buf));
         if crc != calculated_crc {
-            // Oops, node-fast uses an old version of a crc lib with bug so just
-            // ignore a mismatch for now.
-            // For interop to work we either need to port the buggy version of
-            // the crc calculation over to rust or update node-fast to use an
-            // updated version of the crc library.
-            //
-            // let msg = "Calculated CRC does not match the provided CRC";
-            // Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
-            Ok(())
+            let msg = "Calculated CRC does not match the provided CRC";
+            Err(FastParseError::IOError(Error::new(ErrorKind::Other, msg)))
         } else {
             Ok(())
         }
