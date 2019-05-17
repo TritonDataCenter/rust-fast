@@ -12,6 +12,8 @@ use tokio::prelude::*;
 
 use crate::protocol::{FastMessage, FastRpc};
 
+/// Create a task to be used by the tokio runtime for response handling for Fast
+/// message requests.
 pub fn make_task<F>(
     socket: TcpStream,
     mut response_handler: F,

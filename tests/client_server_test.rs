@@ -10,7 +10,7 @@ use tokio::net::TcpListener;
 use tokio::prelude::*;
 
 use rust_fast::client;
-use rust_fast::protocol::FastMessage;
+use rust_fast::protocol::{FastMessage, FastMessageId};
 use rust_fast::server;
 
 fn echo_handler(
@@ -107,7 +107,8 @@ fn client_server_comms() {
         let args_str = ["[\"", &"a".repeat(data_size), "\"]"].concat();
         let args: Value = serde_json::from_str(&args_str).unwrap();
         let handler = response_handler(data_size);
-        let result = client::send(method, args, &mut stream)
+        let mut msg_id = FastMessageId::new();
+        let result = client::send(method, args, &mut msg_id, &mut stream)
             .and_then(|_bytes_written| client::receive(&mut stream, handler));
 
         assert!(result.is_ok());

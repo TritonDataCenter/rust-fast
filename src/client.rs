@@ -13,6 +13,7 @@ use crate::protocol;
 use crate::protocol::{
     FastMessage,
     FastMessageData,
+    FastMessageId,
     FastMessageServerError,
     FastMessageStatus,
     FastParseError
@@ -24,9 +25,18 @@ enum BufferAction {
     Done,
 }
 
-pub fn send(method: String, args: Value, stream: &mut TcpStream) -> Result<usize, Error> {
-    //TODO: Replace hardcoded msg id
-    let msg = FastMessage::data(0x1, FastMessageData::new(method, args));
+/// Send a message to a Fast server using the provided TCP stream.
+pub fn send(
+    method: String,
+    args: Value,
+    msg_id: &mut FastMessageId,
+    stream: &mut TcpStream
+) -> Result<usize, Error> {
+    // It is safe to call unwrap on the msg_id iterator because the
+    // implementation of Iterator for FastMessageId will only ever return
+    // Some(id). The Option return type is required by the Iterator trait.
+    let msg = FastMessage::data(msg_id.next().unwrap() as u32,
+                                FastMessageData::new(method, args));
     let mut write_buf = BytesMut::new();
     match protocol::encode_msg(&msg, &mut write_buf) {
         Ok(_) => stream.write(write_buf.as_ref()),
@@ -34,7 +44,12 @@ pub fn send(method: String, args: Value, stream: &mut TcpStream) -> Result<usize
     }
 }
 
-pub fn receive<F>(stream: &mut TcpStream, mut response_handler: F) -> Result<usize, Error>
+/// Receive a message from a Fast server on the provided TCP stream and call
+/// `response_handler` on the response.
+pub fn receive<F>(
+    stream: &mut TcpStream,
+    mut response_handler: F
+) -> Result<usize, Error>
 where
     F: FnMut(&FastMessage) -> Result<(), Error>,
 {
@@ -103,16 +118,10 @@ where
                         }
                     }
                     FastMessageStatus::Error => {
-                        let err: FastMessageServerError = serde_json::from_value(fm.data.d)
-                            .unwrap_or(FastMessageServerError {
-                                name: String::from("UnspecifiedServerError"),
-                                message: String::from("Server reported unspecified error."),
-                            });
+                        result = serde_json::from_value(fm.data.d)
+                            .or_else(|_| Err(unspecified_error().into()))
+                            .and_then(|e: FastMessageServerError| Err(e.into()));
 
-                        result = Err(Error::new(
-                            ErrorKind::Other,
-                            format!("{}: {}", err.name, err.message),
-                        ));
                         done = true;
                     }
                 }
@@ -128,4 +137,11 @@ where
     }
 
     result
+}
+
+fn unspecified_error() -> FastMessageServerError {
+    FastMessageServerError::new(
+        "UnspecifiedServerError",
+        "Server reported unspecified error."
+    )
 }
