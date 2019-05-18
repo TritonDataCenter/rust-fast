@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg viewBox="0 0 408 270" xmlns="http://www.w3.org/2000/svg" xmlns:inkspace="http://www.inkscape.org/namespaces/inkscape" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs id="defs_block">
+    <filter height="1.504" id="filter_blur" inkspace:collect="always" width="1.1575" x="-0.07875" y="-0.252">
+      <feGaussianBlur id="feGaussianBlur3780" inkspace:collect="always" stdDeviation="4.2"/>
+    </filter>
+  </defs>
+  <title>blockdiag</title>
+  <desc/>
+  <path d="M 64 48 L 64 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="64" y="42">0</text>
+  <path d="M 134 48 L 134 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 204 48 L 204 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="204" y="42">2</text>
+  <path d="M 274 48 L 274 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 48 L 344 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="11" font-style="normal" font-weight="normal" text-anchor="middle" textLength="7" x="344" y="42">4</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="64" y="80"/>
+  <path d="M 64 80 L 134 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 134 80 L 134 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 134 110 L 64 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 64 110 L 64 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="51" x="99" y="102">Version</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="134" y="80"/>
+  <path d="M 134 80 L 204 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 204 80 L 204 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 204 110 L 134 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 134 110 L 134 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="29" x="169" y="102">Type</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="204" y="80"/>
+  <path d="M 204 80 L 274 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 80 L 274 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 110 L 204 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 204 110 L 204 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="43" x="239" y="102">Status</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="210" x="64" y="110"/>
+  <path d="M 64 110 L 274 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 110 L 274 140" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 140 L 64 140" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 64 140 L 64 110" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="72" x="169" y="132">Message Id</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="210" x="64" y="140"/>
+  <path d="M 64 140 L 274 140" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 140 L 274 170" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 170 L 64 170" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 64 170 L 64 140" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="22" x="169" y="162">CRC</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="210" x="64" y="170"/>
+  <path d="M 64 170 L 274 170" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 170 L 274 200" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 200 L 64 200" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 64 200 L 64 170" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="79" x="169" y="192">Data Length</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="280" x="64" y="200"/>
+  <path d="M 64 200 L 344 200" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 200 L 344 230" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 230 L 64 230" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 64 230 L 64 200" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="51" x="204" y="222">Data...</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="274" y="80"/>
+  <path d="M 274 80 L 344 80" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 80 L 344 110" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <path d="M 344 110 L 274 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 110 L 274 80" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="309" y="102">Messa ...</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="274" y="110"/>
+  <path d="M 274 110 L 344 110" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 110 L 344 140" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <path d="M 344 140 L 274 140" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 140 L 274 110" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="22" x="309" y="132">CRC</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="274" y="140"/>
+  <path d="M 274 140 L 344 140" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 140 L 344 170" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <path d="M 344 170 L 274 170" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 170 L 274 140" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="65" x="309" y="162">Data  ...</text>
+  <rect fill="rgb(255,255,255)" height="30" stroke="rgb(255,255,255)" width="70" x="274" y="170"/>
+  <path d="M 274 170 L 344 170" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 344 170 L 344 200" fill="none" stroke="rgb(0,0,0)" stroke-dasharray="4"/>
+  <path d="M 344 200 L 274 200" fill="none" stroke="rgb(0,0,0)"/>
+  <path d="M 274 200 L 274 170" fill="none" stroke="rgb(0,0,0)"/>
+  <text fill="rgb(0,0,0)" font-family="sans-serif" font-size="13" font-style="normal" font-weight="normal" text-anchor="middle" textLength="51" x="309" y="192">Data...</text>
+</svg>
