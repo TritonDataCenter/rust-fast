@@ -46,6 +46,13 @@ where
     while !stream_end {
         let mut read_buf = [0; 128];
         match stream.read(&mut read_buf) {
+            Ok(0) => {
+                result = Err(Error::new(
+                    ErrorKind::UnexpectedEof,
+                    "Received EOF (0 bytes) from server")
+                );
+                stream_end = true;
+            },
             Ok(byte_count) => {
                 total_bytes += byte_count;
                 msg_buf.extend_from_slice(&read_buf[0..byte_count]);
