@@ -23,7 +23,10 @@ fn echo_handler(
     Ok(response)
 }
 
-fn msg_handler(msg: &FastMessage, log: &Logger) -> Result<Vec<FastMessage>, Error> {
+fn msg_handler(
+    msg: &FastMessage,
+    log: &Logger,
+) -> Result<Vec<FastMessage>, Error> {
     let response: Vec<FastMessage> = vec![];
 
     match msg.data.m.name.as_str() {
@@ -71,13 +74,16 @@ fn run_server(barrier: Arc<Barrier>) {
 
 fn assert_handler(expected_data_size: usize) -> impl Fn(&FastMessage) {
     move |msg| {
-        let data: Vec<String> = serde_json::from_value(msg.data.d.clone()).unwrap();
+        let data: Vec<String> =
+            serde_json::from_value(msg.data.d.clone()).unwrap();
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].len(), expected_data_size);
     }
 }
 
-fn response_handler(data_size: usize) -> impl Fn(&FastMessage) -> Result<(), Error> {
+fn response_handler(
+    data_size: usize,
+) -> impl Fn(&FastMessage) -> Result<(), Error> {
     let handler = assert_handler(data_size);
     move |msg| {
         handler(msg);

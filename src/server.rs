@@ -1,6 +1,4 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
+// Copyright 2019 Joyent, Inc.
 
 use std::io::Error;
 
@@ -61,7 +59,8 @@ where
                 let response_len = response.len();
                 let responses_capacity = responses.capacity();
                 if responses_len + response_len > responses_capacity {
-                    let needed_capacity = responses_len + response_len - responses_capacity;
+                    let needed_capacity =
+                        responses_len + response_len - responses_capacity;
                     responses.reserve(needed_capacity);
                 }
 

@@ -1,7 +1,4 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
-
+// Copyright 2019 Joyent, Inc.
 
 //! Fast: A simple RPC protcol used by Joyent products
 //!

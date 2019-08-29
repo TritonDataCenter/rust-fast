@@ -1,6 +1,4 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
+// Copyright 2019 Joyent, Inc.
 
 use std::io::{Error, ErrorKind};
 use std::net::TcpStream;
@@ -11,12 +9,8 @@ use tokio::prelude::*;
 
 use crate::protocol;
 use crate::protocol::{
-    FastMessage,
-    FastMessageData,
-    FastMessageId,
-    FastMessageServerError,
-    FastMessageStatus,
-    FastParseError
+    FastMessage, FastMessageData, FastMessageId, FastMessageServerError,
+    FastMessageStatus, FastParseError,
 };
 
 enum BufferAction {
@@ -30,13 +24,15 @@ pub fn send(
     method: String,
     args: Value,
     msg_id: &mut FastMessageId,
-    stream: &mut TcpStream
+    stream: &mut TcpStream,
 ) -> Result<usize, Error> {
     // It is safe to call unwrap on the msg_id iterator because the
     // implementation of Iterator for FastMessageId will only ever return
     // Some(id). The Option return type is required by the Iterator trait.
-    let msg = FastMessage::data(msg_id.next().unwrap() as u32,
-                                FastMessageData::new(method, args));
+    let msg = FastMessage::data(
+        msg_id.next().unwrap() as u32,
+        FastMessageData::new(method, args),
+    );
     let mut write_buf = BytesMut::new();
     match protocol::encode_msg(&msg, &mut write_buf) {
         Ok(_) => stream.write(write_buf.as_ref()),
@@ -48,7 +44,7 @@ pub fn send(
 /// `response_handler` on the response.
 pub fn receive<F>(
     stream: &mut TcpStream,
-    mut response_handler: F
+    mut response_handler: F,
 ) -> Result<usize, Error>
 where
     F: FnMut(&FastMessage) -> Result<(), Error>,
@@ -64,14 +60,17 @@ where
             Ok(0) => {
                 result = Err(Error::new(
                     ErrorKind::UnexpectedEof,
-                    "Received EOF (0 bytes) from server")
-                );
+                    "Received EOF (0 bytes) from server",
+                ));
                 stream_end = true;
-            },
+            }
             Ok(byte_count) => {
                 total_bytes += byte_count;
                 msg_buf.extend_from_slice(&read_buf[0..byte_count]);
-                match parse_and_handle_messages(msg_buf.as_slice(), &mut response_handler) {
+                match parse_and_handle_messages(
+                    msg_buf.as_slice(),
+                    &mut response_handler,
+                ) {
                     Ok(BufferAction::Keep) => (),
                     Ok(BufferAction::Trim(rest_offset)) => {
                         let truncate_bytes = msg_buf.len() - rest_offset;
@@ -127,7 +126,9 @@ where
                     FastMessageStatus::Error => {
                         result = serde_json::from_value(fm.data.d)
                             .or_else(|_| Err(unspecified_error().into()))
-                            .and_then(|e: FastMessageServerError| Err(e.into()));
+                            .and_then(
+                                |e: FastMessageServerError| Err(e.into()),
+                            );
 
                         done = true;
                     }
@@ -149,6 +150,6 @@ where
 fn unspecified_error() -> FastMessageServerError {
     FastMessageServerError::new(
         "UnspecifiedServerError",
-        "Server reported unspecified error."
+        "Server reported unspecified error.",
     )
 }

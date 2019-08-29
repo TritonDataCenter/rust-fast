@@ -71,7 +71,9 @@ fn stdout_handler(msg: &FastMessage) {
 
 fn response_handler(msg: &FastMessage) -> Result<(), Error> {
     match msg.data.m.name.as_str() {
-        "date" | "echo" | "yes" | "getobject" | "putobject" => stdout_handler(msg),
+        "date" | "echo" | "yes" | "getobject" | "putobject" => {
+            stdout_handler(msg)
+        }
         _ => println!("Received {} response", msg.data.m.name),
     }
 
@@ -93,10 +95,11 @@ fn main() {
             );
             process::exit(1)
         });
-    let method = String::from(matches.value_of("method").unwrap_or_else(|| {
-        eprintln!("Failed to parse method argument as String");
-        process::exit(1)
-    }));
+    let method =
+        String::from(matches.value_of("method").unwrap_or_else(|| {
+            eprintln!("Failed to parse method argument as String");
+            process::exit(1)
+        }));
     let args = value_t!(matches, "args", Value).unwrap_or_else(|e| e.exit());
 
     let mut stream = TcpStream::connect(&addr).unwrap_or_else(|e| {
@@ -106,8 +109,9 @@ fn main() {
 
     let mut msg_id = FastMessageId::new();
 
-    let result = client::send(method, args, &mut msg_id, &mut stream)
-        .and_then(|_bytes_written| client::receive(&mut stream, response_handler));
+    let result = client::send(method, args, &mut msg_id, &mut stream).and_then(
+        |_bytes_written| client::receive(&mut stream, response_handler),
+    );
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);
