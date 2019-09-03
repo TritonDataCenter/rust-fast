@@ -1,5 +1,7 @@
 // Copyright 2019 Joyent, Inc.
 
+//! This module provides the interface for creating Fast clients.
+
 use std::io::{Error, ErrorKind};
 use std::net::TcpStream;
 

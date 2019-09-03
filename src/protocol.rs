@@ -1,5 +1,10 @@
 // Copyright 2019 Joyent, Inc.
 
+//! This module contains the types and functions used to encode and decode Fast
+//! messages. The contents of this module are not needed for normal client or
+//! server consumers of this crate, but they are exposed for the special case of
+//! someone needing to implement custom client or server code.
+
 use std::io::{Error, ErrorKind};
 use std::sync::atomic::AtomicUsize;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -410,7 +415,10 @@ impl Encoder for FastRpc {
 
 /// Encode a `FastMessage` into a byte buffer. The `Result` contains a unit type
 /// on success and an error string on failure.
-pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
+pub(crate) fn encode_msg(
+    msg: &FastMessage,
+    buf: &mut BytesMut,
+) -> Result<(), String> {
     let m_msg_type_u8 = msg.msg_type.to_u8();
     let m_status_u8 = msg.status.to_u8();
     match (m_msg_type_u8, m_status_u8) {

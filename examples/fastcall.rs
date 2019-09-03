@@ -1,6 +1,4 @@
-/*
- * Copyright 2018 Joyent, Inc.
- */
+// Copyright 2018 Joyent, Inc.
 
 use std::io::Error;
 use std::net::{SocketAddr, TcpStream};

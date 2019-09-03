@@ -1,6 +1,4 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
+// Copyright 2019 Joyent, Inc.
 
 use std::env;
 use std::io::{Error, ErrorKind};
@@ -159,7 +157,7 @@ fn main() {
             .incoming()
             .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
             .for_each(move |socket| {
-                let task = server::make_task(socket, msg_handler, &process_log);
+                let task = server::make_task(socket, msg_handler, Some(&process_log));
                 tokio::spawn(task);
                 Ok(())
             })
