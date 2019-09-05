@@ -1,6 +1,4 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
+// Copyright 2019 Joyent, Inc.
 
 use std::env;
 use std::io::{Error, ErrorKind};
@@ -89,21 +87,28 @@ fn yes_handler(
     match msg.data.d {
         Value::Array(_) => {
             let data_clone = msg.data.clone();
-            let payload_result: Result<Vec<YesPayload>, _> = serde_json::from_value(data_clone.d);
+            let payload_result: Result<Vec<YesPayload>, _> =
+                serde_json::from_value(data_clone.d);
             match payload_result {
                 Ok(payloads) => {
                     if payloads.len() == 1 {
                         for _i in 0..payloads[0].count {
-                            let value = Value::Array(vec![payloads[0].value.clone()]);
+                            let value =
+                                Value::Array(vec![payloads[0].value.clone()]);
                             let yes_data = FastMessage::data(
                                 msg.id,
-                                FastMessageData::new(msg.data.m.name.clone(), value),
+                                FastMessageData::new(
+                                    msg.data.m.name.clone(),
+                                    value,
+                                ),
                             );
                             response.push(yes_data);
                         }
                         Ok(response)
                     } else {
-                        Err(other_error("Expected JSON array with a single element"))
+                        Err(other_error(
+                            "Expected JSON array with a single element",
+                        ))
                     }
                 }
                 Err(_) => Err(other_error(
@@ -115,7 +120,10 @@ fn yes_handler(
     }
 }
 
-fn msg_handler(msg: &FastMessage, log: &Logger) -> Result<Vec<FastMessage>, Error> {
+fn msg_handler(
+    msg: &FastMessage,
+    log: &Logger,
+) -> Result<Vec<FastMessage>, Error> {
     let response: Vec<FastMessage> = vec![];
 
     match msg.data.m.name.as_str() {
@@ -149,7 +157,7 @@ fn main() {
             .incoming()
             .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
             .for_each(move |socket| {
-                let task = server::make_task(socket, msg_handler, &process_log);
+                let task = server::make_task(socket, msg_handler, Some(&process_log));
                 tokio::spawn(task);
                 Ok(())
             })

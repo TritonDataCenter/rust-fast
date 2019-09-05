@@ -1,0 +1,16 @@
+\documentclass{standalone}
+\usepackage{bytefield}
+\begin{document}
+
+\begin{bytefield}[bitwidth=1.1em]{32}
+  \bitheader{0,7,8,15,16,23,24,31} \\
+  \bitbox{8}{VERSION=1} & \bitbox{8}{TYPE} & \bitbox{8}{STATUS}& \bitbox{8}{MSGID~0} \\
+  \bitbox{8}{MSGID~1} & \bitbox{8}{MSGID~2} & \bitbox{8}{MSGID~3} & \bitbox{8}{CRC~0} \\
+  \bitbox{8}{CRC~1} & \bitbox{8}{CRC~2} & \bitbox{8}{CRC~3} & \bitbox{8}{DLEN~0} \\
+  \bitbox{8}{DLEN~1} & \bitbox{8}{DLEN~2} & \bitbox{8}{DLEN~3} & \bitbox{8}{DATA~0} \\
+  \bitbox{8}{DATA~1} & \bitbox{8}{DATA~2} & \bitbox{8}{DATA~3} & \bitbox{8}{DATA~4} \\
+  \bitbox[]{16}{$\vdots$ \\[1ex]} &\bitbox[]{16}{$\vdots$ \\[1ex]} \\
+  \bitbox{8}{DATA~$N-3$} & \bitbox{8}{DATA~$N-2$} & \bitbox{8}{DATA~$N-1$} & \bitbox{8}{DATA~$N$} \\
+\end{bytefield}
+
+\end{document}

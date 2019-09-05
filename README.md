@@ -43,3 +43,8 @@ Or try the `yes` method, an RPC version of yes(1):
     {"hello":"world"}
     {"hello":"world"}
     {"hello":"world"}
+
+## Documentation
+
+Further information is available in the rustdocs. These can be generated locally
+by running `cargo doc` in the cloned repository.

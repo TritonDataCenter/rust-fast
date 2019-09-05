@@ -1,11 +1,14 @@
-/*
- * Copyright 2019 Joyent, Inc.
- */
+// Copyright 2019 Joyent, Inc.
+
+//! This module contains the types and functions used to encode and decode Fast
+//! messages. The contents of this module are not needed for normal client or
+//! server consumers of this crate, but they are exposed for the special case of
+//! someone needing to implement custom client or server code.
 
 use std::io::{Error, ErrorKind};
-use std::{io, str, usize};
 use std::sync::atomic::AtomicUsize;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{io, str, usize};
 
 use byteorder::{BigEndian, ByteOrder};
 use bytes::{BufMut, BytesMut};
@@ -15,7 +18,6 @@ use num_derive::{FromPrimitive, ToPrimitive};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_io::_tokio_codec::{Decoder, Encoder};
-
 
 const FP_OFF_TYPE: usize = 0x1;
 const FP_OFF_STATUS: usize = 0x2;
@@ -41,21 +43,11 @@ impl FastMessageId {
     pub fn new() -> Self {
         FastMessageId(AtomicUsize::new(0x0))
     }
-
-
-    // pub fn next(&mut self) -> usize {
-    //     let id_value = self.0.get_mut();
-    //     let current = *id_value;
-    //     *id_value = (*id_value + 1) % (usize::max_value() - 1);
-
-    //     current
-    // }
 }
 
 impl Iterator for FastMessageId {
     type Item = usize;
 
-    // next() is the only required method
     /// Returns the next Fast message id and increments the value modulo the
     /// usize MAX_VALUE - 1.
     fn next(&mut self) -> Option<Self::Item> {
@@ -67,7 +59,6 @@ impl Iterator for FastMessageId {
         Some(current)
     }
 }
-
 
 /// An error type representing a failure to parse a buffer as a Fast message.
 #[derive(Debug)]
@@ -106,17 +97,14 @@ impl FastMessageServerError {
     pub fn new(name: &str, message: &str) -> Self {
         FastMessageServerError {
             name: String::from(name),
-            message: String::from(message)
+            message: String::from(message),
         }
     }
 }
 
 impl From<FastMessageServerError> for Error {
     fn from(err: FastMessageServerError) -> Self {
-        Error::new(
-            ErrorKind::Other,
-            format!("{}: {}", err.name, err.message)
-        )
+        Error::new(ErrorKind::Other, format!("{}: {}", err.name, err.message))
     }
 }
 
@@ -160,7 +148,8 @@ pub struct FastMessageMetaData {
 impl FastMessageMetaData {
     pub fn new(n: String) -> FastMessageMetaData {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let now_micros = now.as_secs() * 1_000_000 + u64::from(now.subsec_micros());
+        let now_micros =
+            now.as_secs() * 1_000_000 + u64::from(now.subsec_micros());
 
         FastMessageMetaData {
             uts: now_micros,
@@ -184,7 +173,6 @@ impl FastMessageData {
         }
     }
 }
-
 
 /// Represents a Fast message including the header and data payload
 #[derive(Debug, Clone)]
@@ -250,18 +238,25 @@ impl FastMessage {
     /// Parse a portion of a byte buffer into a `FastMessageHeader`. Returns a
     /// `FastParseError` if the available bytes cannot be parsed to a
     /// `FastMessageHeader`.
-    pub fn parse_header(buf: &[u8]) -> Result<FastMessageHeader, FastParseError> {
-        let msg_type = FromPrimitive::from_u8(buf[FP_OFF_TYPE]).ok_or_else(|| {
-            let msg = "Failed to parse message type";
-            FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-        })?;
-        let status = FromPrimitive::from_u8(buf[FP_OFF_STATUS]).ok_or_else(|| {
-            let msg = "Failed to parse message status";
-            FastParseError::IOError(Error::new(ErrorKind::Other, msg))
-        })?;
+    pub fn parse_header(
+        buf: &[u8],
+    ) -> Result<FastMessageHeader, FastParseError> {
+        let msg_type =
+            FromPrimitive::from_u8(buf[FP_OFF_TYPE]).ok_or_else(|| {
+                let msg = "Failed to parse message type";
+                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
+            })?;
+        let status =
+            FromPrimitive::from_u8(buf[FP_OFF_STATUS]).ok_or_else(|| {
+                let msg = "Failed to parse message status";
+                FastParseError::IOError(Error::new(ErrorKind::Other, msg))
+            })?;
         let msg_id = BigEndian::read_u32(&buf[FP_OFF_MSGID..FP_OFF_MSGID + 4]);
-        let expected_crc = BigEndian::read_u32(&buf[FP_OFF_CRC..FP_OFF_CRC + 4]);
-        let data_len = BigEndian::read_u32(&buf[FP_OFF_DATALEN..FP_OFF_DATALEN + 4]) as usize;
+        let expected_crc =
+            BigEndian::read_u32(&buf[FP_OFF_CRC..FP_OFF_CRC + 4]);
+        let data_len =
+            BigEndian::read_u32(&buf[FP_OFF_DATALEN..FP_OFF_DATALEN + 4])
+                as usize;
 
         Ok(FastMessageHeader {
             msg_type,
@@ -272,7 +267,10 @@ impl FastMessage {
         })
     }
 
-    fn validate_data_length(buf: &[u8], data_length: usize) -> Result<(), FastParseError> {
+    fn validate_data_length(
+        buf: &[u8],
+        data_length: usize,
+    ) -> Result<(), FastParseError> {
         if buf.len() < (FP_HEADER_SZ + data_length) {
             Err(FastParseError::NotEnoughBytes(buf.len()))
         } else {
@@ -348,7 +346,10 @@ impl Decoder for FastRpc {
     type Item = Vec<FastMessage>;
     type Error = Error;
 
-    fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Error> {
+    fn decode(
+        &mut self,
+        buf: &mut BytesMut,
+    ) -> Result<Option<Self::Item>, Error> {
         let mut msgs: Self::Item = Vec::new();
         let mut done = false;
 
@@ -361,7 +362,8 @@ impl Decoder for FastRpc {
             match FastMessage::parse(&buf) {
                 Ok(parsed_msg) => {
                     // TODO: Handle the error case here!
-                    let data_str = serde_json::to_string(&parsed_msg.data).unwrap();
+                    let data_str =
+                        serde_json::to_string(&parsed_msg.data).unwrap();
                     let data_len = data_str.len();
                     buf.advance(FP_HEADER_SZ + data_len);
                     msgs.push(parsed_msg);
@@ -375,7 +377,10 @@ impl Decoder for FastRpc {
                     Ok(())
                 }
                 Err(err) => {
-                    let msg = format!("failed to parse Fast request: {}", Error::from(err));
+                    let msg = format!(
+                        "failed to parse Fast request: {}",
+                        Error::from(err)
+                    );
                     Err(Error::new(ErrorKind::Other, msg))
                 }
             }?
@@ -393,8 +398,13 @@ impl Encoder for FastRpc {
     type Item = Vec<FastMessage>;
     //TODO: Create custom FastMessage error type
     type Error = io::Error;
-    fn encode(&mut self, item: Self::Item, buf: &mut BytesMut) -> Result<(), io::Error> {
-        let results: Vec<Result<(), String>> = item.iter().map(|x| encode_msg(x, buf)).collect();
+    fn encode(
+        &mut self,
+        item: Self::Item,
+        buf: &mut BytesMut,
+    ) -> Result<(), io::Error> {
+        let results: Vec<Result<(), String>> =
+            item.iter().map(|x| encode_msg(x, buf)).collect();
         let result: Result<Vec<()>, String> = results.iter().cloned().collect();
         match result {
             Ok(_) => Ok(()),
@@ -405,7 +415,10 @@ impl Encoder for FastRpc {
 
 /// Encode a `FastMessage` into a byte buffer. The `Result` contains a unit type
 /// on success and an error string on failure.
-pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
+pub(crate) fn encode_msg(
+    msg: &FastMessage,
+    buf: &mut BytesMut,
+) -> Result<(), String> {
     let m_msg_type_u8 = msg.msg_type.to_u8();
     let m_status_u8 = msg.status.to_u8();
     match (m_msg_type_u8, m_status_u8) {
@@ -421,7 +434,9 @@ pub fn encode_msg(msg: &FastMessage, buf: &mut BytesMut) -> Result<(), String> {
             buf.put_u8(msg_type_u8);
             buf.put_u8(status_u8);
             buf.put_u32_be(msg.id);
-            buf.put_u32_be(u32::from(State::<ARC>::calculate(data_str.as_bytes())));
+            buf.put_u32_be(u32::from(State::<ARC>::calculate(
+                data_str.as_bytes(),
+            )));
             buf.put_u32_be(data_str.len() as u32);
             buf.put(data_str);
             Ok(())
@@ -462,7 +477,9 @@ mod test {
         let _ = inner_obj.insert(k, Value::String(v));
         outer_obj
             .insert(String::from("value"), Value::Object(inner_obj))
-            .and_then(|_| outer_obj.insert(String::from("count"), count.into()));
+            .and_then(|_| {
+                outer_obj.insert(String::from("count"), count.into())
+            });
         Value::Object(outer_obj)
     }
 
