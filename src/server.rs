@@ -4,13 +4,14 @@
 
 use std::io::Error;
 
+use serde_json::json;
 use slog::{debug, error, o, Drain, Logger};
 use tokio;
 use tokio::codec::Decoder;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
 
-use crate::protocol::{FastMessage, FastRpc};
+use crate::protocol::{FastMessage, FastMessageData, FastRpc};
 
 /// Create a task to be used by the tokio runtime for handling responses to Fast
 /// protocol requests.
@@ -55,7 +56,6 @@ where
     debug!(log, "responding to {} messages", msgs.len());
 
     let mut responses: Vec<FastMessage> = Vec::new();
-    let mut error: Option<Error> = None;
 
     for msg in msgs {
         match response_handler(&msg, &log) {
@@ -82,16 +82,20 @@ where
                 responses.push(FastMessage::end(msg.id, method));
             }
             Err(err) => {
-                error = Some(err);
+                let method = msg.data.m.name.clone();
+                let value = json!({
+                    "name": "FastError",
+                    "message": err.to_string()
+                });
+
+                let err_msg = FastMessage::error(
+                    msg.id,
+                    FastMessageData::new(method, value),
+                );
+                responses.push(err_msg);
             }
         }
     }
 
-    let fut = if let Some(err) = error {
-        future::err(err)
-    } else {
-        future::ok(responses)
-    };
-
-    Box::new(fut)
+    Box::new(future::ok(responses))
 }

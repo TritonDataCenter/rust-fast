@@ -1,6 +1,6 @@
 [package]
 name = "rust_fast"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
 edition = "2018"
 
@@ -10,7 +10,7 @@ byteorder = "1.2.6"
 chrono = { version = "0.4.6", features = ["serde"] }
 crc16 = "0.4.0"
 num = "0.2"
-num-derive = "0.2"
+num-derive = "0.3"
 num-traits = "0.2"
 quickcheck = "0.8.0"
 rand = "0.6.4"
