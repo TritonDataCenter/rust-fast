@@ -132,7 +132,7 @@ fn msg_handler(
         "yes" => yes_handler(msg, response, &log),
         _ => Err(Error::new(
             ErrorKind::Other,
-            format!("Unsupport functon: {}", msg.data.m.name),
+            format!("Unsupported function: {}", msg.data.m.name),
         )),
     }
 }
@@ -158,8 +158,7 @@ fn main() {
             .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
             .for_each(move |socket| {
                 let task = server::make_task(socket, msg_handler, Some(&process_log));
-                tokio::spawn(task);
-                Ok(())
+                tokio::spawn(task)
             })
     });
 }
