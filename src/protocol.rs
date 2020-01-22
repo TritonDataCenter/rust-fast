@@ -1,4 +1,4 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 //! This module contains the types and functions used to encode and decode Fast
 //! messages. The contents of this module are not needed for normal client or
@@ -29,8 +29,8 @@ const FP_OFF_DATA: usize = 0xf;
 /// The size of a Fast message header
 pub const FP_HEADER_SZ: usize = FP_OFF_DATA;
 
-const FP_VERSION_1: u8 = 0x1;
-const FP_VERSION_CURRENT: u8 = FP_VERSION_1;
+const FP_VERSION_2: u8 = 0x2;
+const FP_VERSION_CURRENT: u8 = FP_VERSION_2;
 
 /// A data type representing a Fast message id that can safely be shard between
 /// threads. The `next` associated function retrieves the next id value and
