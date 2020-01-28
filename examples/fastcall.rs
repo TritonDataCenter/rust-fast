@@ -1,11 +1,13 @@
-// Copyright 2018 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
+use std::error::Error as StdError;
 use std::io::Error;
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::process;
 
 use clap::{crate_version, value_t, App, Arg, ArgMatches};
 use serde_json::Value;
+use tokio::net::TcpStream;
 
 use rust_fast::client;
 use rust_fast::protocol::{FastMessage, FastMessageId};
@@ -78,7 +80,8 @@ fn response_handler(msg: &FastMessage) -> Result<(), Error> {
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn StdError>> {
     let matches = parse_opts(APP.to_string());
     let host = String::from(matches.value_of("host").unwrap_or(DEFAULT_HOST));
     let port = value_t!(matches, "port", u32).unwrap_or(DEFAULT_PORT);
@@ -100,18 +103,19 @@ fn main() {
         }));
     let args = value_t!(matches, "args", Value).unwrap_or_else(|e| e.exit());
 
-    let mut stream = TcpStream::connect(&addr).unwrap_or_else(|e| {
+    let mut stream = TcpStream::connect(&addr).await.unwrap_or_else(|e| {
         eprintln!("Failed to connect to server: {}", e);
         process::exit(1)
     });
 
     let mut msg_id = FastMessageId::new();
 
-    let result = client::send(method, args, &mut msg_id, &mut stream).and_then(
-        |_bytes_written| client::receive(&mut stream, response_handler),
-    );
+    client::send(method, args, &mut msg_id, &mut stream).await?;
+    let result = client::receive(&mut stream, response_handler).await;
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);
     }
+
+    Ok(())
 }

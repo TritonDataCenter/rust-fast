@@ -1,6 +1,7 @@
 // Copyright 2020 Joyent, Inc.
 
 use std::env;
+use std::error::Error as StdError;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::sync::Mutex;
@@ -8,11 +9,11 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use chrono::prelude::*;
+use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use slog::{debug, error, info, o, Drain, Logger};
+use slog::{debug, info, o, Drain, Level, LevelFilter, Logger};
 use tokio::net::TcpListener;
-use tokio::prelude::*;
 
 use rust_fast::protocol::{FastMessage, FastMessageData};
 use rust_fast::server;
@@ -24,15 +25,15 @@ struct YesPayload {
 }
 
 #[derive(Serialize, Deserialize)]
-struct DatePayload {
-    timestamp: u64,
-    iso8601: DateTime<Utc>,
-}
-
-#[derive(Serialize, Deserialize)]
 struct FastBenchPayload {
     echo: Value,
     delay: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct DatePayload {
+    timestamp: u64,
+    iso8601: DateTime<Utc>,
 }
 
 impl DatePayload {
@@ -199,28 +200,31 @@ fn msg_handler(
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn StdError>> {
     let plain = slog_term::PlainSyncDecorator::new(std::io::stdout());
     let root_log = Logger::root(
-        Mutex::new(slog_term::FullFormat::new(plain).build()).fuse(),
+        Mutex::new(LevelFilter::new(
+            slog_term::FullFormat::new(plain).build(),
+            Level::Info,
+        ))
+        .fuse(),
         o!("build-id" => "0.1.0"),
     );
 
     let addr = env::args().nth(1).unwrap_or("127.0.0.1:2030".to_string());
     let addr = addr.parse::<SocketAddr>().unwrap();
 
-    let listener = TcpListener::bind(&addr).expect("failed to bind");
+    let mut listener = TcpListener::bind(&addr).await.expect("failed to bind");
+    let mut incoming = listener.incoming();
     info!(root_log, "listening for fast requests"; "address" => addr);
 
-    tokio::run({
+    while let Some(Ok(stream)) = incoming.next().await {
         let process_log = root_log.clone();
-        let err_log = root_log.clone();
-        listener
-            .incoming()
-            .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
-            .for_each(move |socket| {
-                let task = server::make_task(socket, msg_handler, Some(&process_log));
-                tokio::spawn(task)
-            })
-    });
+        tokio::spawn(async move {
+            server::make_task(stream, msg_handler, Some(&process_log)).await;
+        });
+    }
+
+    Ok(())
 }

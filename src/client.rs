@@ -1,12 +1,12 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 //! This module provides the interface for creating Fast clients.
 
 use std::io::{Error, ErrorKind};
-use std::net::TcpStream;
 
 use bytes::BytesMut;
 use serde_json::Value;
+use tokio::net::TcpStream;
 use tokio::prelude::*;
 
 use crate::protocol;
@@ -22,7 +22,7 @@ enum BufferAction {
 }
 
 /// Send a message to a Fast server using the provided TCP stream.
-pub fn send(
+pub async fn send(
     method: String,
     args: Value,
     msg_id: &mut FastMessageId,
@@ -37,14 +37,14 @@ pub fn send(
     );
     let mut write_buf = BytesMut::new();
     match protocol::encode_msg(&msg, &mut write_buf) {
-        Ok(_) => stream.write(write_buf.as_ref()),
+        Ok(_) => stream.write(write_buf.as_ref()).await,
         Err(err_str) => Err(Error::new(ErrorKind::Other, err_str)),
     }
 }
 
 /// Receive a message from a Fast server on the provided TCP stream and call
 /// `response_handler` on the response.
-pub fn receive<F>(
+pub async fn receive<F>(
     stream: &mut TcpStream,
     mut response_handler: F,
 ) -> Result<usize, Error>
@@ -58,7 +58,7 @@ where
 
     while !stream_end {
         let mut read_buf = [0; 128];
-        match stream.read(&mut read_buf) {
+        match stream.read(&mut read_buf).await {
             Ok(0) => {
                 result = Err(Error::new(
                     ErrorKind::UnexpectedEof,

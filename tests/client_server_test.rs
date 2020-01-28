@@ -1,15 +1,17 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
+use std::error::Error as StdError;
 use std::io::{Error, ErrorKind};
-use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::net::{Shutdown, SocketAddr};
 use std::process;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
+use futures::StreamExt;
 use serde_json::Value;
-use slog::{debug, error, info, o, Drain, Logger};
-use tokio::net::TcpListener;
-use tokio::prelude::*;
+use slog::{debug, info, o, Drain, Level, LevelFilter, Logger};
+use tokio::net::{TcpListener, TcpStream};
+use tokio_test::block_on;
 
 use rust_fast::client;
 use rust_fast::protocol::{FastMessage, FastMessageId};
@@ -40,33 +42,37 @@ fn msg_handler(
     }
 }
 
-fn run_server(barrier: Arc<Barrier>) {
+#[tokio::main]
+async fn run_server(barrier: Arc<Barrier>) {
     let plain = slog_term::PlainSyncDecorator::new(std::io::stdout());
     let root_log = Logger::root(
-        Mutex::new(slog_term::FullFormat::new(plain).build()).fuse(),
+        Mutex::new(LevelFilter::new(
+            slog_term::FullFormat::new(plain).build(),
+            Level::Info,
+        ))
+        .fuse(),
         o!("build-id" => "0.1.0"),
     );
 
     let addr_str = "127.0.0.1:56652".to_string();
     match addr_str.parse::<SocketAddr>() {
         Ok(addr) => {
-            let listener = TcpListener::bind(&addr).expect("failed to bind");
+            let mut listener =
+                TcpListener::bind(&addr).await.expect("failed to bind");
+            let mut incoming = listener.incoming();
             info!(root_log, "listening for fast requests"; "address" => addr);
 
             barrier.wait();
 
-            tokio::run({
+            while let Some(Ok(stream)) = incoming.next().await {
                 let process_log = root_log.clone();
-                let err_log = root_log.clone();
-                listener
-                    .incoming()
-                    .map_err(move |e| error!(&err_log, "failed to accept socket"; "err" => %e))
-                    .for_each(move |socket| {
-                        let task = server::make_task(socket, msg_handler, Some(&process_log));
-                        tokio::spawn(task);
-                        Ok(())
-                    })
-            })
+                tokio::spawn(async move {
+                    server::make_task(stream, msg_handler, Some(&process_log))
+                        .await;
+                });
+            }
+
+            ()
         }
         Err(e) => {
             eprintln!("error parsing address: {}", e);
@@ -93,6 +99,35 @@ fn response_handler(
     }
 }
 
+async fn run_client() -> Result<(), Box<dyn StdError>> {
+    let addr_str = "127.0.0.1:56652".to_string();
+    let addr = addr_str.parse::<SocketAddr>().unwrap();
+
+    let mut stream = TcpStream::connect(&addr).await.unwrap_or_else(|e| {
+        eprintln!("Failed to connect to server: {}", e);
+        process::exit(1)
+    });
+
+    for i in 1..100 {
+        let data_size = i * 1000;
+        let method = String::from("echo");
+        let args_str = ["[\"", &"a".repeat(data_size), "\"]"].concat();
+        let args: Value = serde_json::from_str(&args_str).unwrap();
+        let handler = response_handler(data_size);
+        let mut msg_id = FastMessageId::new();
+        client::send(method, args, &mut msg_id, &mut stream).await?;
+        let result = client::receive(&mut stream, handler).await;
+
+        assert!(result.is_ok());
+    }
+
+    let shutdown_result = stream.shutdown(Shutdown::Both);
+
+    assert!(shutdown_result.is_ok());
+
+    Ok(())
+}
+
 #[test]
 fn client_server_comms() {
     let barrier = Arc::new(Barrier::new(2));
@@ -100,29 +135,5 @@ fn client_server_comms() {
     let _h_server = thread::spawn(move || run_server(barrier_clone));
 
     barrier.clone().wait();
-
-    let addr_str = "127.0.0.1:56652".to_string();
-    let addr = addr_str.parse::<SocketAddr>().unwrap();
-
-    let mut stream = TcpStream::connect(&addr).unwrap_or_else(|e| {
-        eprintln!("Failed to connect to server: {}", e);
-        process::exit(1)
-    });
-
-    (1..100).for_each(|x| {
-        let data_size = x * 1000;
-        let method = String::from("echo");
-        let args_str = ["[\"", &"a".repeat(data_size), "\"]"].concat();
-        let args: Value = serde_json::from_str(&args_str).unwrap();
-        let handler = response_handler(data_size);
-        let mut msg_id = FastMessageId::new();
-        let result = client::send(method, args, &mut msg_id, &mut stream)
-            .and_then(|_bytes_written| client::receive(&mut stream, handler));
-
-        assert!(result.is_ok());
-    });
-
-    let shutdown_result = stream.shutdown(Shutdown::Both);
-
-    assert!(shutdown_result.is_ok());
+    assert!(block_on(run_client()).is_ok());
 }
