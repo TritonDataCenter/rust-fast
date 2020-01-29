@@ -1,14 +1,15 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 use std::env;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use chrono::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use slog::{debug, error, info, o, Drain, Logger};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
@@ -26,6 +27,12 @@ struct YesPayload {
 struct DatePayload {
     timestamp: u64,
     iso8601: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct FastBenchPayload {
+    echo: Value,
+    delay: Option<u64>,
 }
 
 impl DatePayload {
@@ -120,6 +127,60 @@ fn yes_handler(
     }
 }
 
+fn fastbench_handler(
+    msg: &FastMessage,
+    mut response: Vec<FastMessage>,
+    log: &Logger,
+) -> Result<Vec<FastMessage>, Error> {
+    debug!(log, "handling fastbench function request");
+
+    match msg.data.d {
+        Value::Array(_) => {
+            let data_clone = msg.data.clone();
+            let payload_result: Result<Vec<FastBenchPayload>, _> =
+                serde_json::from_value(data_clone.d);
+            match payload_result {
+                Ok(payloads) => {
+                    if payloads.len() == 1 {
+                        if payloads[0].delay.is_some() {
+                            let delay_duration = Duration::from_millis(
+                                payloads[0]
+                                    .delay
+                                    .expect("failed to unwrap delay value"),
+                            );
+                            thread::sleep(delay_duration);
+                        }
+                        let echo_payloads =
+                            payloads[0].echo.as_array().unwrap();
+                        let mut resp_payloads = Vec::new();
+                        for i in echo_payloads {
+                            let echo_response = json!({"value": i.clone()});
+                            resp_payloads.push(echo_response);
+                        }
+                        let resp = FastMessage::data(
+                            msg.id,
+                            FastMessageData::new(
+                                msg.data.m.name.clone(),
+                                Value::Array(resp_payloads),
+                            ),
+                        );
+                        response.push(resp);
+                        Ok(response)
+                    } else {
+                        Err(other_error(
+                            "Expected JSON array with a single element",
+                        ))
+                    }
+                }
+                Err(_) => Err(other_error(
+                    "Failed to parse JSON data as payload for yes function",
+                )),
+            }
+        }
+        _ => Err(other_error("Expected JSON array")),
+    }
+}
+
 fn msg_handler(
     msg: &FastMessage,
     log: &Logger,
@@ -130,6 +191,7 @@ fn msg_handler(
         "date" => date_handler(msg, response, &log),
         "echo" => echo_handler(msg, response, &log),
         "yes" => yes_handler(msg, response, &log),
+        "fastbench" => fastbench_handler(msg, response, &log),
         _ => Err(Error::new(
             ErrorKind::Other,
             format!("Unsupported function: {}", msg.data.m.name),

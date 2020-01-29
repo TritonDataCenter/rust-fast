@@ -2,6 +2,13 @@
 name = "rust_fast"
 version = "0.1.1"
 authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
+description = """
+streaming JSON RPC over TCP
+"""
+repository = "https://github.com/joyent/rust-fast"
+keywords = ["protocol","joyent"]
+readme = "./README.md"
+license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
