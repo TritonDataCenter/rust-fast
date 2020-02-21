@@ -48,3 +48,7 @@ Or try the `yes` method, an RPC version of yes(1):
 
 Further information is available in the rustdocs. These can be generated locally
 by running `cargo doc` in the cloned repository.
+
+## Minimum Supported Rust Version
+
+The current minimum supported rust veresion is 1.39.
