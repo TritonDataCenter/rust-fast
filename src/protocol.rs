@@ -150,7 +150,7 @@ impl FastMessageMetaData {
     pub fn new(n: String) -> FastMessageMetaData {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::new(0, 0));
+            .unwrap_or_else(|_| Duration::new(0, 0));
         let now_micros =
             now.as_secs() * 1_000_000 + u64::from(now.subsec_micros());
 

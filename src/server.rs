@@ -22,8 +22,7 @@ pub async fn make_task<F>(
     stream: TcpStream,
     response_handler: F,
     log: Option<&Logger>,
-) -> ()
-where
+) where
     F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
 {
     if let Err(e) = process(stream, response_handler, log).await {
