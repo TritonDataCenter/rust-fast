@@ -1,4 +1,4 @@
-# rust-fast: streaming JSON RPC over TCP
+# fast-rpc: streaming JSON RPC over TCP
 
 Fast is a simple RPC protocol used in Joyent's
 [Triton](http://github.com/joyent/triton) and
