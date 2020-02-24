@@ -1,4 +1,4 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 use std::io::{Error, ErrorKind};
 use std::net::{Shutdown, SocketAddr, TcpStream};
@@ -11,9 +11,9 @@ use slog::{debug, error, info, o, Drain, Logger};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use rust_fast::client;
-use rust_fast::protocol::{FastMessage, FastMessageId};
-use rust_fast::server;
+use fast_rpc::client;
+use fast_rpc::protocol::{FastMessage, FastMessageId};
+use fast_rpc::server;
 
 fn echo_handler(
     msg: &FastMessage,

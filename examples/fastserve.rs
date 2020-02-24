@@ -14,8 +14,8 @@ use slog::{debug, error, info, o, Drain, Logger};
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use rust_fast::protocol::{FastMessage, FastMessageData};
-use rust_fast::server;
+use fast_rpc::protocol::{FastMessage, FastMessageData};
+use fast_rpc::server;
 
 #[derive(Serialize, Deserialize)]
 struct YesPayload {
