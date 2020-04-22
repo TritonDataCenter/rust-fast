@@ -1,12 +1,12 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 //! Fast: A simple RPC protcol used by Joyent products
 //!
 //! Fast is a simple RPC protocol used in
-//! Joyent's[Triton](http://github.com/joyent/triton) and
+//! Joyent's [Triton](http://github.com/joyent/triton) and
 //! [Manta](https://github.com/joyent/manta) systems, particularly in the
-//! [Moray](https://github.com/joyent/moray) and
-//! [Boray](https://github.com/joyent/boray) components.
+//! [moray](https://github.com/joyent/moray) and
+//! [buckets-api](https://github.com/joyent/manta-buckets-api) components.
 //!
 //! Protocol overview
 //!
