@@ -1,6 +1,6 @@
 [package]
-name = "rust_fast"
-version = "0.2.0"
+name = "fast-rpc"
+version = "0.3.0"
 authors = ["Kelly McLaughlin <kelly.mclaughlin@joyent.com>"]
 description = """
 streaming JSON RPC over TCP

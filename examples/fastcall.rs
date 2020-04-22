@@ -9,8 +9,8 @@ use clap::{crate_version, value_t, App, Arg, ArgMatches};
 use serde_json::Value;
 use tokio::net::TcpStream;
 
-use rust_fast::client;
-use rust_fast::protocol::{FastMessage, FastMessageId};
+use fast_rpc::client;
+use fast_rpc::protocol::{FastMessage, FastMessageId};
 
 static APP: &'static str = "fastcall";
 static DEFAULT_HOST: &'static str = "127.0.0.1";

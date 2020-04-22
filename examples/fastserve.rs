@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 use slog::{debug, info, o, Drain, Level, LevelFilter, Logger};
 use tokio::net::TcpListener;
 
-use rust_fast::protocol::{FastMessage, FastMessageData};
-use rust_fast::server;
+use fast_rpc::protocol::{FastMessage, FastMessageData};
+use fast_rpc::server;
 
 #[derive(Serialize, Deserialize)]
 struct YesPayload {

@@ -13,9 +13,9 @@ use slog::{debug, info, o, Drain, Level, LevelFilter, Logger};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_test::block_on;
 
-use rust_fast::client;
-use rust_fast::protocol::{FastMessage, FastMessageId};
-use rust_fast::server;
+use fast_rpc::client;
+use fast_rpc::protocol::{FastMessage, FastMessageId};
+use fast_rpc::server;
 
 fn echo_handler(
     msg: &FastMessage,
