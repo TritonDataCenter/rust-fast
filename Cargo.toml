@@ -27,7 +27,7 @@ serde_derive = "1.0.104"
 serde_json = "1.0.45"
 slog = { version = "2.5.2", features = [ "max_level_trace" ] }
 slog-stdlog = "4.0.0"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = ">=0.2.5", features = ["full"] }
 tokio-util = { version = "0.2.0", features = ["full"] }
 
 [dev-dependencies]

@@ -3,14 +3,12 @@
 //! This module provides the interface for creating Fast servers.
 
 use std::error::Error as StdError;
-// use std::future::Future;
 use std::io::Error;
 
 use futures::SinkExt;
 use serde_json::json;
 use slog::{debug, o, Drain, Logger};
 use tokio::net::TcpStream;
-// use tokio::prelude::*;
 use tokio::stream::StreamExt;
 use tokio_util::codec::Framed;
 
