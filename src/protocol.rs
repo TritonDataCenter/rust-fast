@@ -7,17 +7,18 @@
 
 use std::io::{Error, ErrorKind};
 use std::sync::atomic::AtomicUsize;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{io, str, usize};
 
 use byteorder::{BigEndian, ByteOrder};
+use bytes::buf::Buf;
 use bytes::{BufMut, BytesMut};
 use crc16::*;
 use num::{FromPrimitive, ToPrimitive};
 use num_derive::{FromPrimitive, ToPrimitive};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio_io::_tokio_codec::{Decoder, Encoder};
+use tokio_util::codec::{Decoder, Encoder};
 
 const FP_OFF_TYPE: usize = 0x1;
 const FP_OFF_STATUS: usize = 0x2;
@@ -147,7 +148,9 @@ pub struct FastMessageMetaData {
 
 impl FastMessageMetaData {
     pub fn new(n: String) -> FastMessageMetaData {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| Duration::new(0, 0));
         let now_micros =
             now.as_secs() * 1_000_000 + u64::from(now.subsec_micros());
 
@@ -361,13 +364,21 @@ impl Decoder for FastRpc {
 
             match FastMessage::parse(&buf) {
                 Ok(parsed_msg) => {
-                    // TODO: Handle the error case here!
-                    let data_str =
-                        serde_json::to_string(&parsed_msg.data).unwrap();
-                    let data_len = data_str.len();
-                    buf.advance(FP_HEADER_SZ + data_len);
-                    msgs.push(parsed_msg);
-                    Ok(())
+                    match serde_json::to_string(&parsed_msg.data) {
+                        Ok(data_str) => {
+                            let data_len = data_str.len();
+                            buf.advance(FP_HEADER_SZ + data_len);
+                            msgs.push(parsed_msg);
+                            Ok(())
+                        }
+                        Err(err) => {
+                            let msg = format!(
+                                "failed to parse Fast message data as JSON: {}",
+                                Error::from(err)
+                            );
+                            Err(Error::new(ErrorKind::Other, msg))
+                        }
+                    }
                 }
                 Err(FastParseError::NotEnoughBytes(_)) => {
                     // Not enough bytes available yet so we need to return
@@ -396,7 +407,6 @@ impl Decoder for FastRpc {
 
 impl Encoder for FastRpc {
     type Item = Vec<FastMessage>;
-    //TODO: Create custom FastMessage error type
     type Error = io::Error;
     fn encode(
         &mut self,
@@ -423,23 +433,32 @@ pub(crate) fn encode_msg(
     let m_status_u8 = msg.status.to_u8();
     match (m_msg_type_u8, m_status_u8) {
         (Some(msg_type_u8), Some(status_u8)) => {
-            // TODO: Handle the error case here!
-            let data_str = serde_json::to_string(&msg.data).unwrap();
-            let data_len = data_str.len();
-            let buf_capacity = buf.capacity();
-            if buf.len() + FP_HEADER_SZ + data_len > buf_capacity {
-                buf.reserve(FP_HEADER_SZ + data_len as usize);
+            match serde_json::to_string(&msg.data) {
+                Ok(data_str) => {
+                    let data_len = data_str.len();
+                    let buf_capacity = buf.capacity();
+                    if buf.len() + FP_HEADER_SZ + data_len > buf_capacity {
+                        buf.reserve(FP_HEADER_SZ + data_len as usize);
+                    }
+                    buf.put_u8(FP_VERSION_CURRENT);
+                    buf.put_u8(msg_type_u8);
+                    buf.put_u8(status_u8);
+                    buf.put_u32(msg.id);
+                    buf.put_u32(u32::from(State::<ARC>::calculate(
+                        data_str.as_bytes(),
+                    )));
+                    buf.put_u32(data_str.len() as u32);
+                    buf.put(data_str.as_bytes());
+                    Ok(())
+                }
+                Err(err) => {
+                    let msg = format!(
+                        "failed to encode Fast message data as JSON: {}",
+                        Error::from(err)
+                    );
+                    Err(msg)
+                }
             }
-            buf.put_u8(FP_VERSION_CURRENT);
-            buf.put_u8(msg_type_u8);
-            buf.put_u8(status_u8);
-            buf.put_u32_be(msg.id);
-            buf.put_u32_be(u32::from(State::<ARC>::calculate(
-                data_str.as_bytes(),
-            )));
-            buf.put_u32_be(data_str.len() as u32);
-            buf.put(data_str);
-            Ok(())
         }
         (None, Some(_)) => Err(String::from("Invalid message type")),
         (Some(_), None) => Err(String::from("Invalid status")),

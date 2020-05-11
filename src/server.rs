@@ -1,55 +1,66 @@
-// Copyright 2019 Joyent, Inc.
+// Copyright 2020 Joyent, Inc.
 
 //! This module provides the interface for creating Fast servers.
 
+use std::error::Error as StdError;
 use std::io::Error;
 
+use futures::SinkExt;
 use serde_json::json;
-use slog::{debug, error, o, Drain, Logger};
-use tokio;
-use tokio::codec::Decoder;
+use slog::{debug, o, Drain, Logger};
 use tokio::net::TcpStream;
-use tokio::prelude::*;
+use tokio::stream::StreamExt;
+use tokio_util::codec::Framed;
 
 use crate::protocol::{FastMessage, FastMessageData, FastRpc};
 
 /// Create a task to be used by the tokio runtime for handling responses to Fast
 /// protocol requests.
-pub fn make_task<F>(
-    socket: TcpStream,
+pub async fn make_task<F>(
+    stream: TcpStream,
+    response_handler: F,
+    log: Option<&Logger>,
+) where
+    F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
+{
+    if let Err(e) = process(stream, response_handler, log).await {
+        println!("failed to process connection; error = {}", e);
+    }
+}
+
+async fn process<F>(
+    stream: TcpStream,
     mut response_handler: F,
     log: Option<&Logger>,
-) -> impl Future<Item = (), Error = ()> + Send
+) -> Result<(), Box<dyn StdError>>
 where
     F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
 {
-    let (tx, rx) = FastRpc.framed(socket).split();
+    let mut transport = Framed::new(stream, FastRpc);
 
-    // If no logger was provided use the slog StdLog drain by default
-    let rx_log = log
-        .cloned()
-        .unwrap_or_else(|| Logger::root(slog_stdlog::StdLog.fuse(), o!()));
-
-    let tx_log = rx_log.clone();
-    tx.send_all(rx.and_then(move |x| {
-        debug!(rx_log, "processing fast message");
-        respond(x, &mut response_handler, &rx_log)
-    }))
-    .then(move |res| {
-        if let Err(e) = res {
-            error!(tx_log, "failed to process connection"; "err" => %e);
+    while let Some(request) = transport.next().await {
+        match request {
+            Ok(request) => {
+                let rx_log = log.cloned().unwrap_or_else(|| {
+                    Logger::root(slog_stdlog::StdLog.fuse(), o!())
+                });
+                debug!(rx_log, "processing fast message");
+                let response =
+                    respond(request, &mut response_handler, &rx_log).await?;
+                transport.send(response).await?;
+            }
+            Err(e) => return Err(e.into()),
         }
+    }
 
-        debug!(tx_log, "transmitted response to client");
-        Ok(())
-    })
+    Ok(())
 }
 
-fn respond<F>(
+async fn respond<F>(
     msgs: Vec<FastMessage>,
     response_handler: &mut F,
     log: &Logger,
-) -> impl Future<Item = Vec<FastMessage>, Error = Error> + Send
+) -> Result<Vec<FastMessage>, Box<dyn StdError>>
 where
     F: FnMut(&FastMessage, &Logger) -> Result<Vec<FastMessage>, Error> + Send,
 {
@@ -97,5 +108,5 @@ where
         }
     }
 
-    Box::new(future::ok(responses))
+    Ok(responses)
 }
