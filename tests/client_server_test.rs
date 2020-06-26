@@ -115,8 +115,8 @@ fn client_server_comms() {
         let args_str = ["[\"", &"a".repeat(data_size), "\"]"].concat();
         let args: Value = serde_json::from_str(&args_str).unwrap();
         let handler = response_handler(data_size);
-        let mut msg_id = FastMessageId::new();
-        let result = client::send(method, args, &mut msg_id, &mut stream)
+        let msg_id = FastMessageId::new();
+        let result = client::send(method, args, msg_id, &mut stream)
             .and_then(|_bytes_written| client::receive(&mut stream, handler));
 
         assert!(result.is_ok());

@@ -105,9 +105,9 @@ fn main() {
         process::exit(1)
     });
 
-    let mut msg_id = FastMessageId::new();
+    let msg_id = FastMessageId::new();
 
-    let result = client::send(method, args, &mut msg_id, &mut stream).and_then(
+    let result = client::send(method, args, msg_id, &mut stream).and_then(
         |_bytes_written| client::receive(&mut stream, response_handler),
     );
 

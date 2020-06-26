@@ -6,7 +6,7 @@
 //! someone needing to implement custom client or server code.
 
 use std::io::{Error, ErrorKind};
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{io, str, usize};
 
@@ -42,6 +42,12 @@ impl FastMessageId {
     /// Creates a new FastMessageId
     pub fn new() -> Self {
         FastMessageId(AtomicUsize::new(0x0))
+    }
+}
+
+impl Clone for FastMessageId {
+    fn clone(&self) -> Self {
+        FastMessageId(AtomicUsize::new(self.0.load(Ordering::SeqCst)))
     }
 }
 

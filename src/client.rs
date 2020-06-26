@@ -25,7 +25,7 @@ enum BufferAction {
 pub fn send(
     method: String,
     args: Value,
-    msg_id: &mut FastMessageId,
+    mut msg_id: FastMessageId,
     stream: &mut TcpStream,
 ) -> Result<usize, Error> {
     // It is safe to call unwrap on the msg_id iterator because the
