@@ -1,5 +1,10 @@
+## This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 #
 # Copyright 2019 Joyent, Inc
+# Copyright 2022 MNX Cloud, Inc
 #
 
 #
@@ -8,7 +13,9 @@
 
 NAME = rust-cueball
 CARGO ?= cargo
-RUST_CLIPPY_ARGS ?= -- -D clippy::all
+# See TOOLS-2546 for why this is disabled
+# RUST_CLIPPY_ARGS ?= -- -D clippy::all
+CARGO_CHECK_ARGS ?= --workspace
 
 #
 # Repo-specific targets
@@ -26,4 +33,6 @@ test:
 
 .PHONY: check
 check:
-	$(CARGO) clean && $(CARGO) clippy $(RUST_CLIPPY_ARGS)
+	@# Use `cargo check <args>` instead of `cargo clippy <args>`
+	@# (TOOLS-2546, as above)
+	$(CARGO) clean && $(CARGO) check $(CARGO_CHECK_ARGS)
