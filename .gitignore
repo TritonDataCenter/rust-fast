@@ -3,4 +3,3 @@
 /docs/*.aux
 /docs/*.dvi
 /docs/*.log
-Cargo.lock
